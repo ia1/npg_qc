@@ -2,6 +2,7 @@
  * Authors: designed and written by Irina Abnizova (ia1) and Steven Leonard (srl)
  *
   Last edited:
+   2 Sept 2016- to introduce 3-4 smoothing iteration BEFORE stabilizing check
   30 Jan -sds, monotonuity, separate treating of first and last bin peaks: twice larger std
   Jan 2015--added first and last bins as possible peaks(after bug in run 14975)
         -- added estimation of standard deviation for all modes filtered in
@@ -52,6 +53,9 @@ float SmoothWin3(float val1,float val2,float val3);
 float SmoothWin2(float val1,float val2);
 int CountPeaksNew(float hist[], int bins[], int nbins);// returns k=num_peaks
 int FilterDistance(int pos[], float amp[], int dist, int npos);//returns num_clus=#modes
+void Smoothing_iterate( float histS[], float hist[], int bins[],int nbins, int num_peS);
+void Smoothing_stable( float histS[], float hist[], int bins[],int nbins, int num_peS, int diff);
+
 //============================================================MAIN
 
 int main(int argc, char **argv)
@@ -68,6 +72,7 @@ int main(int argc, char **argv)
     FILE *fp; //file handle
 
     float hist[100];
+    float histS[100];
     int bins[100];
     int pos[100];//peak positions and their amplitudes after smoothing
     float amp[100];//peak positions and their amplitudes after smoothing
@@ -174,32 +179,18 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    //1.2 ========================= smooth until stable
+    //1.2 ========================= smooth until stable (how many times?...)
     num_peS = num_peI;
     diff = 1;
-    while (diff>0)
-    {
-        float histS[100];
-        int num_peaks;
+    for (i=0; i<nbins; i++){
+		histS[i]=0.0;
+	}
 
-        //---------------smooth given hist
-        histS[0] = SmoothWin2(hist[0],hist[1]);
-        for (i=1;i<nbins-1;i++)
-        {
-            histS[i] = SmoothWin3(hist[i-1],hist[i],hist[i+1]);
-        }
-        histS[nbins-1] = SmoothWin2(hist[nbins-2],hist[nbins-1]);
+    Smoothing_iterate( histS, hist, bins,nbins, num_peS);
 
-        num_peaks = CountPeaksNew(histS,bins,nbins);
-        diff = (num_peS - num_peaks);
-        num_peS = num_peaks;
+    diff=1;
+    Smoothing_stable( histS, hist, bins,nbins, num_peS, diff);
 
-        // ------------re-assign current hist as histS
-        for (i=0;i<nbins;i++)
-        {
-            hist[i] = histS[i];
-        }
-    } //end while
 
     // ------------------find peak amps and positions:  4 jan
     k = 0;
@@ -266,6 +257,10 @@ int main(int argc, char **argv)
 
     //4 -----------compute params of main mode
     mu = FindMainMode(hist,bins,nbins,height);// mu for Norm fit
+    //for (k=0; k<nbins; k++){
+		//printf("hist= %.2f\n", hist[k]);
+	//}
+
     sd = EstimateStd(hist,bins,nbins,mu,height);//for smoothed hist
 
     //5 ---------------------Norm fit toMain Mode
@@ -276,7 +271,11 @@ int main(int argc, char **argv)
 
     // 5.2 scale histN to get same main peak height, smoothed
     maxN = GetMax(histN,nbins);
+    //printf("max Norm hist = %.2f\n", maxN);
+    scale=1;
+    if (maxN >0){
     scale = height / maxN;// difference in max height b/w fitNorm and original hist
+    }
     for (i=0; i<nbins; i++)
     {
         histN[i] *= scale;
@@ -445,8 +444,13 @@ float FitNormal(int mu, float sd,int bin)// returns one value from Norm pdf
     float cons;
     float histN;
 
+    // initiate histN in case sd=0
+    histN=0.0;
+    if (sd > 0){
+
     cons = 1.0 / (sd * sqrt(6.28));
     histN = cons * exp(-(bin-mu)*(bin-mu)/(2*sd*sd));
+    }
 
     return histN;
 }
@@ -460,15 +464,19 @@ float Differ2Normal(float hist[],float histN[],int bins[],int nbins)
 
     Sd = 0.0;
     So = 0.0;
+    frac=0.0;
+    confidence =0.5;
+
     for (n=0; n<nbins; n++)
     {
         float diff = hist[n] - histN[n];
         Sd += fabs(diff) * bins[n];// fabs for float!
         So += hist[n] * bins[n];
     }
+    if (So > 0) {
     frac =Sd / So;
-
     confidence =1.0 - frac;
+    }
 
     return confidence;
 }
@@ -522,7 +530,7 @@ int CountPeaksNew(float hist[], int bins[], int nbins)
 int FilterDistance(int *pos, float *amp, int dist, int npos)
 {
     //updates pos and amp
-    int num_clus = 0;
+    int num_clus = 0;// clusters (of peaks) are adjacent peaks
 
     if (npos > 1)
     {
@@ -614,5 +622,78 @@ int SpuriousPeaks(float hist[], int bins[], int nbins, float amp[], int pos[], i
     return k;
 }
 
+//==============================================
+// first initiate histS[]=0  //num_peS = num_peI;
+void Smoothing_iterate( float histS[], float hist[], int bins[],int nbins, int num_peS )
+{
+
+    //diff = 1;
+    int k,i;
+    int num_peaks;
+
+    k=0;
+    //while ((diff>0))
+    for (k=0;k<4;k++)
+    {
+        //float histS[100];
+
+        //---------------smooth given hist
+        histS[0] = SmoothWin2(hist[0],hist[1]);
+        for (i=1;i<nbins-1;i++)
+        {
+            histS[i] = SmoothWin3(hist[i-1],hist[i],hist[i+1]);
+        }
+        histS[nbins-1] = SmoothWin2(hist[nbins-2],hist[nbins-1]);
+
+        num_peaks = CountPeaksNew(histS,bins,nbins);
+        //diff = (num_peS - num_peaks);
+        num_peS = num_peaks;
+
+        // ------------re-assign current hist as histS
+        for (i=0;i<nbins;i++)
+        {
+            hist[i] = histS[i];
+        }
+        //k++;// number of smoothing here
+    } //end while; for
 
 
+    //printf("number of smoothings= %d\n", k);
+}
+
+//======================check if stable (with respect of peaks growth)
+// diff sh be positive diff=1
+void Smoothing_stable( float histS[], float hist[], int bins[],int nbins, int num_peS, int diff)
+{
+
+    //diff = 1;
+    int i;
+    int num_peaks;
+
+
+    while ((diff>0))
+
+    {
+        //---------------smooth given hist
+        histS[0] = SmoothWin2(hist[0],hist[1]);
+        for (i=1;i<nbins-1;i++)
+        {
+            histS[i] = SmoothWin3(hist[i-1],hist[i],hist[i+1]);
+        }
+        histS[nbins-1] = SmoothWin2(hist[nbins-2],hist[nbins-1]);
+
+        num_peaks = CountPeaksNew(histS,bins,nbins);
+        diff = (num_peS - num_peaks);
+        num_peS = num_peaks;
+
+        // ------------re-assign current hist as histS
+        for (i=0;i<nbins;i++)
+        {
+            hist[i] = histS[i];
+        }
+
+    } //end while;
+
+
+    //printf("diff in peaks= %d\n", diff);
+}
