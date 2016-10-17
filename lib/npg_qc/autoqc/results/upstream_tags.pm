@@ -1,14 +1,7 @@
-#########
-# Author:        Kevin Lewis
-# Created:       12 August 2013
-#
-
 package npg_qc::autoqc::results::upstream_tags;
 
-use strict;
-use warnings;
 use Moose;
-use Readonly;
+use namespace::autoclean;
 
 extends qw(npg_qc::autoqc::results::result);
 with qw(npg_qc::autoqc::role::upstream_tags);
@@ -35,7 +28,7 @@ has [ qw/ instrument_name
                                          is =>  'rw',
                                          );
 
-no Moose;
+__PACKAGE__->meta->make_immutable;
 
 1;
 
@@ -70,7 +63,7 @@ __END__
 
 =item Moose
 
-=item Readonly
+=item namespace::autoclean
 
 =item npg_qc::autoqc::results::result
 
@@ -82,11 +75,11 @@ __END__
 
 =head1 AUTHOR
 
-Author: Kevin Lewis E<lt>kl2@sanger.ac.ukE<gt><gt>
+Kevin Lewis E<lt>kl2@sanger.ac.ukE<gt><gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2013 GRL, by Kevin Lewis
+Copyright (C) 2016 GRL
 
 This file is part of NPG.
 

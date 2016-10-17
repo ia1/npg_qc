@@ -1,12 +1,7 @@
-#########
-# Author:        Marina Gourtovaia mg8@sanger.ac.uk
-# Created:       2008-11-26
-#
-#
-
 package npg_qc::autoqc::checks::insert_size;
 
 use Moose;
+use namespace::autoclean;
 use Moose::Meta::Class;
 use Moose::Util::TypeConstraints;
 use Carp;
@@ -16,16 +11,7 @@ use File::Spec::Functions qw(catfile);
 use Math::Round qw(round);
 use List::Util;
 use Perl6::Slurp;
-
-#########################################################
-# 'extends' should prepend 'with' since the
-# fields required by the npg_qc::autoqc::align::reference
-# role are defined there; there is a bug in Moose::Role
-#########################################################
-extends qw(npg_qc::autoqc::checks::check);
-with qw(npg_tracking::data::reference::find
-        npg_common::roles::software_location
-       );
+use Try::Tiny;
 
 use npg::api::run;
 use npg_qc::autoqc::types;
@@ -34,11 +20,18 @@ use npg_qc::autoqc::results::insert_size;
 use npg_common::Alignment;
 use npg_common::extractor::fastq qw(generate_equally_spaced_reads);
 
+extends qw(npg_qc::autoqc::checks::check);
+with qw(
+  npg_tracking::data::reference::find
+  npg_common::roles::software_location
+       );
+
 our $VERSION = '0';
 
 Readonly::Scalar my $NORM_FIT_EXE                           => q[norm_fit];
 Readonly::Scalar my $NORM_FIT_MIN_PROPERLY_ALIGNED_PAIRS    => 5000;
 Readonly::Scalar my $NORM_FIT_MAX_BIN_THRESHOLD             => 0.9;
+Readonly::Scalar my $NORM_FIT_CONFIDENCE_PASS_LEVEL  => 0.0;
 
 ## no critic (Documentation::RequirePodAtEnd RequireCheckingReturnValueOfEval ProhibitParensWithBuiltins RequireNumberSeparators)
 =head1 NAME
@@ -59,7 +52,6 @@ An insert size check performs paired alignment in order to determine the actual 
 =head1 SUBROUTINES/METHODS
 
 =cut
-
 
 Readonly::Scalar our $NUM_READS              => 10000;
 Readonly::Scalar our $THOUSAND               => 1000;
@@ -119,7 +111,7 @@ has 'use_reverse_complemented' => (isa             => 'Bool',
 
 =head2 expected_size
 
-Expected size range as a reference to an array that contains pairs of I<from> and I<to> values. Undefined if the field has not been set by the user and the sutobuild procedure has failed. In the simplest case the $is->extected_size->[0] contains a I<from> value and $is->extected_size->[1] contains a I<to> value. In case of a multiplexed lane, further values might be present in teh array.
+Expected size range as a reference to an array that contains pairs of I<from> and I<to> values. Undefined if the field has not been set by the user and the sutobuild procedure has failed. In the simplest case the $is->extected_size->[0] contains a I<from> value and $is->extected_size->[1] contains a I<to> value. In case of a multiplexed lane, further values might be present in the array.
 
 =cut
 has 'expected_size'   => (isa         => 'Maybe[ArrayRef]',
@@ -132,14 +124,13 @@ sub _build_expected_size {
     my $self = shift;
 
     my $sizes_hash;
-    eval {
-	$sizes_hash = $self->lims->required_insert_size;
-        1;
-    } or do {
-        $self->result->add_comment($EVAL_ERROR);
-        return;
+    try {
+        $sizes_hash = $self->lims->required_insert_size;
+    } catch {
+      carp $_;
+        $self->result->add_comment($_);
     };
-    if (keys %{$sizes_hash} == 0) {
+    if (!defined $sizes_hash || (keys %{$sizes_hash} == 0)) {
         $self->result->add_comment('Expected insert size is not defined');
         return;
     }
@@ -160,27 +151,22 @@ has 'reference'   => (isa         => 'Maybe[Str]',
 
 sub _build_reference {
     my $self = shift;
-    my @refs;
-    eval {
+    my @refs = ();
+    try {
         @refs = @{$self->refs()};
+    } catch {
+        $self->result->add_comment(
+        q[Error: binary reference cannot be retrieved; cannot run insert size check. ] . $_);
     };
-    if ($EVAL_ERROR) {
-        $self->result->add_comment(q[Error: binary reference cannot be retrieved; cannot run insert size check. ] . $EVAL_ERROR);
-        return;
-    }
 
     if ($self->messages->count) {
         $self->result->add_comment(join(q[ ], $self->messages->messages));
     }
-
     if (scalar @refs > 1) {
-	$self->result->add_comment(q[multiple references found: ] . join(q[;], @refs));
-        return;
+	      $self->result->add_comment(q[multiple references found: ] . join(q[;], @refs));
     }
-
     if (scalar @refs == 0) {
         $self->result->add_comment(q[Failed to retrieve binary reference.]);
-        return;
     }
     return (pop @refs);
 }
@@ -197,6 +183,26 @@ has 'format'          => (isa             => 'Str',
                           default         => q[sam],
                          );
 
+=head2 is_paired_read
+
+Boolean flag indicating whether both a forward and reverse reads are present.
+ 
+=cut
+
+has 'is_paired_read'  => (isa             => 'Bool',
+                          is              => 'ro',
+                          required        => 0,
+                          lazy_build      => 1,
+                         );
+sub _build_is_paired_read {
+  my $self = shift;
+  my $id_run = $self->get_id_run();
+  if (!$id_run) {
+    croak 'Data from multiple runs';
+  }
+  return npg::api::run->new({id_run => $id_run})->is_paired_read();
+}
+
 =head2 format
 
 format for paired alignment
@@ -212,7 +218,7 @@ has 'norm_fit_cmd' => (
 
 override 'can_run'            => sub {
   my $self = shift;
-  return npg::api::run->new({id_run => $self->id_run})->is_paired_read();
+  my $id = $self->is_paired_read();
 };
 
 override 'execute'            => sub {
@@ -233,7 +239,7 @@ override 'execute'            => sub {
   $self->result->set_info( 'Aligner', $self->bwa_cmd() );
   $self->result->set_info( 'Aligner_version',  $self->current_version( $self->bwa_cmd() ) );
   if($self->aligner_options()){
-    $self->result->set_info( 'Aligner_options', $self->aligner_options() );
+      $self->result->set_info( 'Aligner_options', $self->aligner_options() );
   }
   $self->_set_additional_modules_info();
 
@@ -250,17 +256,19 @@ override 'execute'            => sub {
       push @input, $self->_align($self->_fastq_reverse_complement($sample_reads));
   }
 
-  eval {
+  try {
       npg_qc::autoqc::parse::alignment->new(
           files2parse  => \@input,
       )->generate_insert_sizes($self->result);
       1;
-  } or do {
-      $self->result->add_comment($EVAL_ERROR);
+  } catch {
+      $self->result->add_comment($_);
       $self->result->pass(0);
-      return 1;
   };
 
+  if (defined $self->result->pass() && $self->result->pass() == 0) {
+      return 1;
+  }
   if (!$self->result->num_well_aligned_reads) {
       $self->result->add_comment(q[No results returned from aligning]);
       $self->result->pass(0);
@@ -312,6 +320,7 @@ override 'execute'            => sub {
 
   my @lines = slurp $output;
 
+  my $norm_fit_pass;
   my @modes = ();
   foreach my $line (@lines) {
       if ($line =~ /^\#/xms) {
@@ -323,7 +332,7 @@ override 'execute'            => sub {
           } elsif ($name eq q[confidence]) {
               $self->result->norm_fit_confidence($value);
           } elsif ($name eq q[pass]) {
-              $self->result->norm_fit_pass($value);
+              $norm_fit_pass = $value;
           }
       } else {
           # all other lines are assumed to contain amplitude, mean and optionally std for each mode
@@ -333,46 +342,12 @@ override 'execute'            => sub {
       }
   }
   $self->result->norm_fit_modes(\@modes);
+  if($self->result->norm_fit_confidence > $NORM_FIT_CONFIDENCE_PASS_LEVEL) {
+    $self->result->norm_fit_pass($norm_fit_pass);
+  }
 
   return 1;
 };
-
-sub _evaluate {
-
-  my ($self, $actual_sizes) = @_;
-
-  my $pass = 0;
-
-  my $mean = $self->result->mean;  my $std  = $self->result->std;
-  my $expected_mean  = $self->expected_mean;
-
-  my $MEAN_BOUNDARY = npg_qc::autoqc::criteria::insert_size->mean_boundary;
-  my $STD_COUNT = npg_qc::autoqc::criteria::insert_size ->std_count;
-  my $STD_TOLERANCE = npg_qc::autoqc::criteria::insert_size->std_tolerance;
-
-  #check actual mean is within +/- 10% of expected mean
-  if($mean > $expected_mean * (1-$MEAN_BOUNDARY) &&
-       $mean < $expected_mean * (1+$MEAN_BOUNDARY)) {
-
-    # check 95% of sizes are within +- 3sd of actual mean
-    my $sizes_within_sd_range = 0;
-    my $min = $mean - $STD_COUNT * $std;
-    my $max = $mean + $STD_COUNT * $std;
-
-    for my $insert_size (@{$actual_sizes}) {
-      if($insert_size > $min && $insert_size < $max) {
-  	$sizes_within_sd_range ++;
-      }
-    }
-
-    if ($sizes_within_sd_range >= $STD_TOLERANCE * scalar @{$actual_sizes}) {
-  	$pass = 1;
-    }
-  }
-
-  return $pass;
-}
-
 
 sub _trim {
     my ($self, $string) = @_;
@@ -405,23 +380,20 @@ sub _read_insert_size_hash {
     foreach my $key (keys %{$sizes_hash}) {
         foreach my $boundary (qw/ from to /) {
             if (exists $sizes_hash->{$key}->{$boundary}) {
-	        my $value = $sizes_hash->{$key}->{$boundary};
+                my $value = $sizes_hash->{$key}->{$boundary};
                 if (defined $value) {
                     $value = $self->_enforce_number($value);
                     if ($value > 0) {
                         push @sizes, $value;
-		    }
-	        }
+                    }
+                }
             }
         }
     }
 
     if (!@sizes) {
-        my $message = q[Could not determine expected size for run ] . $self->id_run . q[ lane ] .$self->position;
-        if (defined $self->tag_index) {
-            $message .= q[ tag index ] . defined $self->tag_index;
-	}
-        $self->result->add_comment($message);
+        $self->result->add_comment(
+            q[Could not determine expected size for ] . $self->to_string());
         return \@sizes;
     }
 
@@ -447,26 +419,27 @@ sub _generate_sample_reads {
     my $fqe2 =  catfile($self->tmp_path, q[2.fastq]);
 
     my $actual_sample_size;
-    eval {
+    try {
         $actual_sample_size = generate_equally_spaced_reads($self->input_files, [$fqe1, $fqe2], $self->sample_size);
-        1;
-    } or do {
-        my $error = $EVAL_ERROR;
+    } catch {
+        my $error = $_;
         if ($error =~ /reads[ ]are[ ]out[ ]of[ ]order/ismx) { croak $error; }
         $self->result->add_comment($error);
-        return;
     };
 
-    eval {
-        $self->_set_actual_sample_size($actual_sample_size);
-        1;
-    } or do {
-        $self->result->add_comment(q[Too few reads in ] . $self->input_files->[0] .q[? Number of reads ] . $actual_sample_size . q[.]);
-        return;
-    };
-    $self->result->sample_size($self->actual_sample_size);
+    if (defined $actual_sample_size) {
+        try {
+            $self->_set_actual_sample_size($actual_sample_size);
+        } catch {
+            $self->result->add_comment(q[Too few reads in ] . $self->input_files->[0] .q[? Number of reads ] . $actual_sample_size . q[.]);
+        };
+    }
+    if (defined $self->actual_sample_size) {
+        $self->result->sample_size($self->actual_sample_size);
+        return [$fqe1, $fqe2];
+    }
 
-    return [$fqe1, $fqe2];
+    return;
 }
 
 sub _fastq_reverse_complement {
@@ -478,8 +451,7 @@ sub _fastq_reverse_complement {
         my @args = (q[fastx_reverse_complement], q[-Q 33], q[-i], $sample_reads->[$i], q[-o], $reversed[$i]);
         print 'Producing reverse complemented file: ' . (join q[ ], @args) . qq[\n] || carp 'Producing reverse complemented file: ' . (join q[ ], @args) . qq[\n];
         if (system(@args)) {
-            my $error =  printf "Child %s exited with value %d\n", join(q[ ], @args), $CHILD_ERROR >> $CHILD_ERROR_SHIFT;
-            croak $error;
+            croak  printf "Child %s exited with value %d\n", join(q[ ], @args), $CHILD_ERROR >> $CHILD_ERROR_SHIFT;
         }
     }
     return \@reversed;
@@ -500,6 +472,7 @@ sub _set_additional_modules_info {
     if ($self->use_reverse_complemented) {
         push @packages_info, q[FASTX Toolkit fastx_reverse_complement ] . $self->_fastx_version;
     }
+    push @packages_info, join q[ ], $self->norm_fit_cmd, $VERSION;
     $self->result->set_info('Additional_Modules', ( join q[;], @packages_info ) );
     return;
 }
@@ -511,7 +484,7 @@ sub _fastx_version {
         if ($line =~ /FASTX\ Toolkit/xms) {
             my ($version) = $line =~ /\ (\d+\.\d+\.\d+)\ /xms;
             if ($version) { return $version; }
-	}
+        }
     }
     return q[];
 }
@@ -526,14 +499,6 @@ sub _align {
     return $output_sam;
 }
 
-has 'norm_fit_cmd' => (
-        is      => 'ro',
-        isa     => 'NpgCommonResolvedPathExecutable',
-        coerce  => 1,
-        default => $NORM_FIT_EXE,
-);
-
-no Moose;
 __PACKAGE__->meta->make_immutable();
 
 1;
@@ -555,6 +520,8 @@ __END__
 =item Readonly
 
 =item Moose
+
+=item namespace::autoclean
 
 =item Moose::Meta::Class
 
@@ -580,11 +547,11 @@ __END__
 
 =head1 AUTHOR
 
-Author: Marina Gourtovaia E<lt>mg8@sanger.ac.ukE<gt>
+Marina Gourtovaia E<lt>mg8@sanger.ac.ukE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2010 GRL, by Marina Gourtovaia
+Copyright (C) 2015 GRL, by Marina Gourtovaia
 
 This file is part of NPG.
 

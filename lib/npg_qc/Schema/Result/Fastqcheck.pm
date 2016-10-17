@@ -20,6 +20,18 @@ use MooseX::NonMoose;
 use MooseX::MarkAsMethods autoclean => 1;
 extends 'DBIx::Class::Core';
 
+=head1 ADDITIONAL CLASSES USED
+
+=over 4
+
+=item * L<namespace::autoclean>
+
+=back
+
+=cut
+
+use namespace::autoclean;
+
 =head1 COMPONENTS LOADED
 
 =over 4
@@ -232,8 +244,8 @@ __PACKAGE__->add_unique_constraint('unique_ind_file_name_fastqcheck', ['file_nam
 with 'npg_qc::Schema::Flators';
 
 
-# Created by DBIx::Class::Schema::Loader v0.07036 @ 2014-03-17 09:44:51
-# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:KVViSLyO3aqQg+uUZatunQ
+# Created by DBIx::Class::Schema::Loader v0.07036 @ 2015-06-30 16:51:56
+# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:nbwjX5eRL44rdnTJi4SWBA
 
 __PACKAGE__->set_inflator4scalar('tag_index');
 __PACKAGE__->set_inflator4scalar('split', 'is_string');
@@ -268,6 +280,8 @@ Result class definition in DBIx binding for npg-qc database.
 
 =item Moose
 
+=item namespace::autoclean
+
 =item MooseX::NonMoose
 
 =item MooseX::MarkAsMethods
@@ -290,7 +304,7 @@ Marina Gourtovaia E<lt>mg8@sanger.ac.ukE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2014 GRL, by Marina Gourtovaia
+Copyright (C) 2016 GRL
 
 This file is part of NPG.
 

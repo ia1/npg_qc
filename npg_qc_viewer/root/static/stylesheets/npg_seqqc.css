@@ -31,7 +31,6 @@
   padding: 0px;
   font-family: 'Lucida Grande', helvetica, arial, sans-serif;
   font-size: 12px;
-  
 }
 
 /* to make white space non-braking */
@@ -45,17 +44,17 @@ body {
 }
 
 h1  { font-weight: bold; }
-h2  { 
+h2  {
   font-weight: bold;
   background: #aad4f4;
   color: #476080;
   padding: 3px 6px 3px 8px;
 }
 
-h3  { 
+h3  {
   font-size: 150%;
   background-color: #aad4f4; /* medium blue */
-  color: #31353d;  /* dark font */ 
+  color: #31353d;  /* dark font */
   padding: 3px 3px 3px 8px;
 }
 
@@ -83,7 +82,7 @@ a, a:link, a:visited, a:hover {
   clear: both;
 }
 
-.rel_pos_container {position: relative;} 
+.rel_pos_container {position: relative;}
 
 /***************  header  *****************/
 #header {
@@ -107,33 +106,8 @@ a, a:link, a:visited, a:hover {
   display: inline;
 }
 
-/* main menu strip */
-#tab_bar {
-  background: #aad4f4; /* medium blue */
-  border-bottom: 1px solid #bbb;
-  min-height: 20px;
-}
-
-/* tabs */
-#tabs {
-  color: #31353d;  /* dark font */
-  float: left;
-  padding: 3px 0px 3px 0px;
-}
-
-#tabs a, div#tabs a:link, div#tabs a:visited {
-  color: #31353d;
-  padding: 1px 15px 3px 15px;
-  font-weight: bold;
-}
-
-#tabs a:hover {
-  background: #3e87b3;
-  color: #fff;
-}
-
-#tabs ul {
-  padding-top: 1px;
+.env_dev {
+  color: #f4d483;      /* light orange */
 }
 
 /*************** page-specific menu ******/
@@ -141,7 +115,7 @@ a, a:link, a:visited, a:hover {
 #menu {
   position: fixed;
   right: 10px;
-  top  : 62px;
+  top  : 41px;
   width: 155px;
   height: 100%;
   margin-bottom: 10px;
@@ -213,7 +187,7 @@ a, a:link, a:visited, a:hover {
 }
 
 .check_labels {
-  font-weight: normal;  
+  font-weight: normal;
 }
 
 .lane {
@@ -295,6 +269,19 @@ a, a:link, a:visited, a:hover {
  background-color: #f99389;
 }
 
+/* Used to format error messages from mqc. */
+.failed_mqc {
+ background-color: #FFFFFF;
+ color: #DB1400;
+ font-weight: bold;
+}
+
+.info_mqc {
+ background-color: #FFFFFF;
+ color: #000000;
+ font-weight: bold;
+}
+
 .passed {
  background-color: #b5daff;
 }
@@ -326,7 +313,7 @@ a, a:link, a:visited, a:hover {
 }
 
 .white {
-  color: #FFFFFF; 
+  color: #FFFFFF;
 }
 
 /*************** full results ************/
@@ -353,23 +340,15 @@ a, a:link, a:visited, a:hover {
   padding-left: 28px;
 }
 
-.collapser {
-  padding-right: 70px;
-}
-
-.collapser_open {
-  background: #aad4f4 url("/static/images/blue_collapse.png") no-repeat right center;
-}
-
-.collapser_closed {
-  background: #afcfff url("/static/images/blue_expand.png") no-repeat right center;
-}
-
 .result_full_content {
   color: #333;
   padding: 10px 10px 0 10px;
   background: #fafcfc;
   border: 1px solid #aad4f4;
+}
+
+.result_full_content img {
+  vertical-align: text-top;
 }
 
 .result_full_content table {
@@ -409,7 +388,7 @@ a, a:link, a:visited, a:hover {
 }
 
 .dark_blue {
-  color: #476080; 
+  color: #476080;
 }
 
 .insert_size_histogram {
@@ -420,18 +399,6 @@ a, a:link, a:visited, a:hover {
   padding-left: 20px;
 
 }
-
-.fastqcheck_plot {
-  vertical-align: text-top;
-}
-
-
-.fastqcheck_legend {
-  vertical-align: text-top;
-  padding-left: 10px;
-}
-
-
 /******************* annotation section **************/
 #annotations_frame {
   height: 100px;
@@ -463,27 +430,80 @@ a, a:link, a:visited, a:hover {
 }
 
 /******************* manual qc widgets **************/
+.td_mqc {
+  min-width: 135px;
+  text-align: "left";
+}
+
+.td_library_mqc {
+  min-width: 110px;
+  text-align: "left";
+}
+
 .mqc {
   display: inline;
   padding-right: 5px;
   padding-top: 5px;
 }
 
-.button {
-  margin: 1px;
-  border-style: outset;
-  border-width: 2px;
-  width: 16px;
-  height: 16px;
-  visibility: inherit;
+.lane_mqc_button { /* For all MQC button-like format. */
+  padding-left: 6px;
+  padding-right: 6px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  background: #F4F4F4;
+  border: 1px solid #A8A8A8;
+  -webkit-border-radius: 5px;
+  -moz-border-radius: 5px;
+  border-radius: 5px;
+  -webkit-box-shadow: inset 0 0 1px 1px #f6f6f6;
+  -moz-box-shadow: inset 0 0 1px 1px #f6f6f6;
+  box-shadow: inset 0 0 1px 1px #f6f6f6;
+  color: #333;
+  line-height: 1;
 }
 
-.button_fail {
-  border-color: rgb(255,86,89);
+.lane_mqc_save { /* For the padlock image so it looks like a button */
+  margin-left: 5px;
+  margin-right: 5px;
 }
 
-.button_pass {
-  border-color: rgb(134,204,124);
+.lane_mqc_overall { /* For images working as overall update */
+  margin-left: -1px;
+  margin-right: -1px;
+}
+
+/* To reset the radios for mqc, it affects all radios in page */
+input[type=radio] {
+  display:none;
+}
+
+input[type=radio] + label {
+  background: #F4F4F4;
+  border: 1px solid #A8A8A8;
+  -webkit-border-radius: 5px;
+  -moz-border-radius: 5px;
+  border-radius: 5px;
+  -webkit-box-shadow: inset 0 0 1px 1px #f6f6f6;
+  -moz-box-shadow: inset 0 0 1px 1px #f6f6f6;
+  box-shadow: inset 0 0 1px 1px #f6f6f6;
+  color: #333;
+  font: bold 12px "helvetica neue", helvetica, arial, sans-serif;
+  line-height: 1;
+  text-align: center;
+  text-shadow: 0 1px 0 #fff;
+  width: 150px;
+  margin:-2px;
+  padding: 2px 6px;
+}
+
+input[type=radio]:checked + label {
+  background: #D4D4D4;
+  border: 1px solid #C2C2C2;
+  -webkit-box-shadow: inset 0 0 1px 1px #e3e3e3;
+  -moz-box-shadow: inset 0 0 1px 1px #e3e3e3;
+  box-shadow: inset 0 0 1px 1px #e3e3e3;
+  color: #000;
 }
 
 /******************* pages that do not display results **************/
@@ -536,3 +556,48 @@ a, a:link, a:visited, a:hover {
 #error li {
   padding: 5px;
 }
+
+/************************ styling for d3 graphs ************************/
+svg {
+  font-size: 10px;
+  font-family: Helvetica, sans-serif;
+}
+.axis path,
+.axis line1,
+.axis line2{
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+.x.axis path {
+  display: none;
+}
+.line1,
+.line2 {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+}
+.grid .tick {
+  stroke: lightgrey;
+  opacity: 0.7;
+}
+.grid path {
+  stroke-width: 0;
+}
+
+.chart_left {
+  float: left;
+}
+
+.chart_right {
+  float: right;
+  margin-right: 20px;
+}
+
+.chart_legend {
+  margin-left: auto;
+  margin-right: auto;
+  width: 50px;
+}
+

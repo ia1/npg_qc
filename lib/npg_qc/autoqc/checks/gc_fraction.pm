@@ -1,32 +1,19 @@
-#########
-# Author:        Marina Gourtovaia mg8@sanger.ac.uk
-# Created:       3 February 2010
-#
-#
-
 package npg_qc::autoqc::checks::gc_fraction;
 
-use strict;
-use warnings;
 use Moose;
+use namespace::autoclean;
 use Carp;
 use English qw(-no_match_vars);
 use Readonly;
-use Cwd qw(cwd abs_path);
 use File::Spec::Functions qw(catfile);
 use File::Basename;
 
+use npg_tracking::util::abs_path qw(abs_path);
 use npg_common::fastqcheck;
 use npg_common::sequence::reference::base_count;
 
-#########################################################
-# 'extends' should prepend 'with' since the
-# fields required by the npg_qc::autoqc::align::reference
-# role are defined there; there is a bug in Moose::Role
-#########################################################
 extends qw(npg_qc::autoqc::checks::check);
 with qw(npg_tracking::data::reference::find);
-
 
 our $VERSION = '0';
 ## no critic (Documentation::RequirePodAtEnd RequireCheckingReturnValueOfEval ProhibitParensWithBuiltins)
@@ -79,7 +66,7 @@ has 'ref_base_count_path' => (isa         => 'Maybe[Str]',
                               lazy_build  => 1,
                              );
 
-has '+input_file_ext' => (default    => $EXT,);
+has '+file_type' => (default    => $EXT,);
 
 sub _build_ref_base_count_path {
     my $self = shift;
@@ -192,8 +179,7 @@ sub _gc_percent {
     return $result;
 }
 
-
-no Moose;
+__PACKAGE__->meta->make_immutable;
 
 1;
 __END__
@@ -215,11 +201,13 @@ __END__
 
 =item Moose
 
-=item Cwd
+=item namespace::autoclean
 
 =item File::Spec::Functions
 
 =item File::Basename
+
+=item npg_tracking::util::abs_path
 
 =item npg_tracking::data::reference::find
 
@@ -235,11 +223,11 @@ __END__
 
 =head1 AUTHOR
 
-Author: Marina Gourtovaia E<lt>mg8@sanger.ac.ukE<gt>
+Marina Gourtovaia E<lt>mg8@sanger.ac.ukE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2010 GRL, by Marina Gourtovaia
+Copyright (C) 2016 GRL
 
 This file is part of NPG.
 

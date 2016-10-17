@@ -20,6 +20,18 @@ use MooseX::NonMoose;
 use MooseX::MarkAsMethods autoclean => 1;
 extends 'DBIx::Class::Core';
 
+=head1 ADDITIONAL CLASSES USED
+
+=over 4
+
+=item * L<namespace::autoclean>
+
+=back
+
+=cut
+
+use namespace::autoclean;
+
 =head1 COMPONENTS LOADED
 
 =over 4
@@ -309,6 +321,8 @@ __PACKAGE__->add_unique_constraint(
 
 =item * L<npg_qc::Schema::Flators>
 
+=item * L<npg_qc::autoqc::role::result>
+
 =item * L<npg_qc::autoqc::role::insert_size>
 
 =back
@@ -316,11 +330,11 @@ __PACKAGE__->add_unique_constraint(
 =cut
 
 
-with 'npg_qc::Schema::Flators', 'npg_qc::autoqc::role::insert_size';
+with 'npg_qc::Schema::Flators', 'npg_qc::autoqc::role::result', 'npg_qc::autoqc::role::insert_size';
 
 
-# Created by DBIx::Class::Schema::Loader v0.07036 @ 2014-09-24 16:53:43
-# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:tRyHEBtonqAuzc/mxQ36OQ
+# Created by DBIx::Class::Schema::Loader v0.07045 @ 2016-06-30 15:33:28
+# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:LFQ1hmBwzXghnYe8Zquq/w
 
 __PACKAGE__->set_flators4non_scalar(qw( bins expected_size filenames info norm_fit_modes ));
 __PACKAGE__->set_inflator4scalar('tag_index');
@@ -355,6 +369,8 @@ Result class definition in DBIx binding for npg-qc database.
 
 =item Moose
 
+=item namespace::autoclean
+
 =item MooseX::NonMoose
 
 =item MooseX::MarkAsMethods
@@ -377,7 +393,7 @@ Marina Gourtovaia E<lt>mg8@sanger.ac.ukE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2014 GRL, by Marina Gourtovaia
+Copyright (C) 2016 GRL
 
 This file is part of NPG.
 

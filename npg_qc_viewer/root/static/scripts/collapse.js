@@ -1,7 +1,7 @@
 /*
-* Author:        Nadeem Faruque
+* Author: Jaime Tovar <jmtc@sanger.ac.uk>
 *
-* Copyright (C) 2014 Genome Research Ltd.
+* Copyright (C) 2016 Genome Research Ltd.
 *
 * This file is part of NPG software.
 *
@@ -25,91 +25,138 @@
 *
 * Dependencies: jQuery library
 *
+* Example:
+*
+*   requirejs(['collapse'], function( collapse ) {
+*     var actionAfterCollapseToggle = function() {
+*       alert('There was a collapse toggle!!!');
+*     };
+*
+*     collapse.init(actionAfterCollapseToggle);
+*   });
+*
+*
+*
 ************************************************************************************/
 
-/*
-* Dynamically synchronously loads a script, which will be cached by a browser.
-* Returns true if loading was successful, otherwise returns false.
-* Loading is performed by an AJAX call, so 'same origin' policy applies.
-*/
+/* globals $, define */
 
-function make_collapsible_sections() {
-    // Register all collapsers as closed ones 
-    jQuery(".collapser").addClass("collapser_open");
+"use strict";
+define(['jquery'], function() {
+  return {
+    init: function(afterCollapseToggle) {
 
-    // describe toggle behaviour of collapsers
-    jQuery(".collapser").click(function(){
-	    if(jQuery(this).hasClass("collapser_closed")) {
-		jQuery(this).removeClass("collapser_closed");
-		jQuery(this).addClass("collapser_open");
-		jQuery(this).next("div").slideDown('fast');
-	    } else {
-		jQuery(this).removeClass("collapser_open");
-		jQuery(this).addClass("collapser_closed");
-		jQuery(this).next("div").slideUp('fast');
-	    }
-	    return false;
-	});
+      var _callAfterCollapseToggle = function() {
+        if ( typeof afterCollapseToggle === 'function' ) {
+          afterCollapseToggle();
+        }
+      };
 
-    // manipulate LANE appearance
-    //collapse all lanes
-    jQuery("#collapse_all_lanes").click(function(){
-	    //	    jQuery(this).hide()
-		//		jQuery("#expand_all_lanes").show()
-		jQuery("div.results_full_lane > h3.collapser_open").click();
-		//		jQuery(".results_full_lane_body").slideUp('fast')
-		return false;
-	});
-    
-    //expand all lanes
-    jQuery("#expand_all_lanes").click(function(){
-	    //	    jQuery(this).hide()
-	    //		jQuery("#collapse_all_lanes").show()
-		//		jQuery(".results_full_lane_body").slideDown('fast')
-		jQuery("div.results_full_lane > h3.collapser_closed").click()
-		return false;
-	});
+      var _toggleCollapseStatus = function(element) {
 
-    // manipulate TEST RESULT appearance
-    //expand all results
-    jQuery("#expand_all_results").click(function(){
-	    jQuery("div.result_full > h2.collapser_closed").click();
-	    return false;
-	});
+        // Manual css manipulation as:
+        //   $.toggle()
+        //   $.is(:visible)
+        // are considerably slower for large number of elements
+        if ( element.css('display') === 'block' ) {
+          element.css('display', 'none');
+        } else {
+          element.css('display', 'block');
+        }
+      };
 
-    //collapse all results
-    jQuery("#collapse_all_results").click(function(){
-	    jQuery("div.result_full > h2.collapser_open").click();
-	    return false;
-	});
+      var collapsers = $('.collapser');
 
-    // Since javascript is active we can collapse sections and reveal the menu
-    jQuery("#collapse_menu").show();
-}
+      // Describe toggle behaviour of collapsers
+      collapsers.click(function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        var toCollapse = $(this).nextAll('div');
+        _toggleCollapseStatus(toCollapse);
+        _callAfterCollapseToggle();
+      });
 
-// manipulate Specific Test appearance
-//expand all instances of a test
-function collapse_h2_section(queryText) {
-    jQuery("h2.collapser_open:contains(" + queryText + ")").click();
-    return false;
-}
+      var allHeaders = $('#results_full h2.collapser');
+      var allChecks = [];
 
-//expand all instances of a test
-function expand_h2_section(queryText) {
-    jQuery("h2.collapser_closed:contains(" + queryText + ")").click();
-    return false;
-}
+      //To keep for collapse/expand all
+      $.each(allHeaders, function(index, obj) {
+        var nextDiv = $($(obj).next('div'));
+        allChecks.push(nextDiv);
+      });
 
-// manipulate Specific Test appearance
-//expand all instances of a test
-function collapse_h3_section(queryText) {
-    jQuery("h3.collapser_open:contains(" + queryText + ")").click();
-    return false;
-}
+      $.each(allChecks, function(index, obj) {
+        obj.css('display', 'block');
+      });
 
-//expand all instances of a test
-function expand_h3_section(queryText) {
-    jQuery("h3.collapser_closed:contains(" + queryText + ")").click();
-    return false;
-}
+      /* Manipulate CHECK RESULT appearance */
 
+      //Expand all results
+      $('#expand_all_results').click(function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        $.each(allChecks, function(index, obj) {
+          obj.css('display', 'block');
+        });
+        _callAfterCollapseToggle();
+      });
+
+      //Collapse all results
+      $('#collapse_all_results').click(function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        $.each(allChecks, function(index, obj) {
+          obj.css('display', 'none');
+        });
+        _callAfterCollapseToggle();
+      });
+
+      // Each menu item keeps a list of elements to use
+      $('.collapse_h2, .expand_h2').each(function(index, obj) {
+        var self = $(obj);
+        var mySections = [];
+
+        // Regular expression to filter sections, considers pass/fail
+        var pattern = new RegExp(self.data('section') + '(:\\w+)?$');
+        $.each(allHeaders, function(index, obj) {
+          if ( pattern.test($(obj).text().trim()) ) {
+            var nextDiv = $($(obj).next('div'));
+            mySections.push(nextDiv);
+          }
+        });
+        $.data(obj, 'mySections', mySections);
+      });
+
+      //Collapse h2
+      $('.collapse_h2').click(function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        var self = $(this);
+        var mySections = self.data('mySections');
+
+        $.each(mySections, function( index, obj) {
+          obj.css('display', 'none');
+        });
+
+        _callAfterCollapseToggle();
+      });
+
+      //Expand h2
+      $('.expand_h2').click(function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        var self = $(this);
+        var mySections = self.data('mySections');
+        $.each(mySections, function( index, obj) {
+          obj.css('display', 'block');
+        });
+
+        _callAfterCollapseToggle();
+      });
+
+      //Since javascript is active we can collapse sections and reveal the menu
+      $('#collapse_menu').show();
+    },
+  };
+});

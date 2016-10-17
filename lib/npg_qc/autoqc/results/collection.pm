@@ -1,31 +1,25 @@
-#########
-# Author:        Marina Gourtovaia
-# Created:       03 September 2009
-#
-
 package npg_qc::autoqc::results::collection;
 
-use strict;
-use warnings;
 use Moose;
+use namespace::autoclean;
 use MooseX::AttributeHelpers;
 use Carp;
 use English qw(-no_match_vars);
-use List::MoreUtils qw(none);
+use List::MoreUtils qw(any none);
 use Module::Pluggable::Object;
 use Readonly;
 use File::Basename;
 use Moose::Meta::Class;
 
-use npg_qc::autoqc::autoqc;
 use npg_tracking::illumina::run::short_info;
 use npg_tracking::illumina::run::folder;
 
 use npg_qc::autoqc::qc_store::options qw/$ALL $LANES $PLEXES/;
 use npg_qc::autoqc::qc_store::query;
+use npg_qc::autoqc::role::rpt_key;
 
 our $VERSION = '0';
-## no critic (Documentation::RequirePodAtEnd)
+## no critic (Documentation::RequirePodAtEnd Subroutines::ProhibitUnusedPrivateSubroutines)
 
 =head1 NAME
 
@@ -45,16 +39,24 @@ npg_qc::autoqc::results::collection
 =head1 DESCRIPTION
 
  A wrapper around a list of objects, which are derived from the npg_qc::autoqc::results::result object.
- Has methods for sorting, slicing and searching teh collection.
+ Has methods for sorting, slicing and searching the collection.
 
 =head1 SUBROUTINES/METHODS
 
 =cut
 
-Readonly::Scalar  my $RESULTS_NAMESPACE    => q[npg_qc::autoqc::results];
-Readonly::Scalar  my $LESS    => -1;
-Readonly::Scalar  my $MORE    =>  1;
-Readonly::Scalar  my $EQUAL   =>  0;
+Readonly::Scalar my $RESULTS_NAMESPACE => q[npg_qc::autoqc::results];
+Readonly::Array  my @NON_LISTABLE      => map {join q[::], $RESULTS_NAMESPACE, $_}
+                                                         qw/
+                                                             sequence_summary
+                                                             samtools_stats
+                                                             base
+                                                             result
+                                                             collection
+                                                           /;
+Readonly::Scalar my $LESS    => -1;
+Readonly::Scalar my $MORE    =>  1;
+Readonly::Scalar my $EQUAL   =>  0;
 
 =head2 results
 
@@ -78,38 +80,41 @@ has 'results' => (
           'delete' => 'delete',
           'get'    => 'get',
           'elements'    => 'all',
+          'grep'        => 'grep',
       },
                  );
 
+=head2 checks_list
 
-=head2 _result_classes
-
-A reference to a list of result classes. While making a list, the build method
-requires each of the class modules.
+A reference to a list of result classes.
 
 =cut
-has '_result_classes' => ( isa         => 'ArrayRef',
-                           is          => 'ro',
-                           required    => 0,
-                           lazy_build  => 1,
-                         );
+has 'checks_list' => (isa        => 'ArrayRef',
+                      is         => 'ro',
+                      required   => 0,
+                      lazy_build => 1,
+                     );
+sub _build_checks_list {
+    return _list_classes(0);
+}
 
-
-sub _build__result_classes {
-    my $self = shift;
-
+sub _list_classes {
+    my $load = shift;
+    $load = $load ? 1 : 0;
     my @classes = Module::Pluggable::Object->new(
-                               require     => 1,
-			       search_path => $RESULTS_NAMESPACE,
-                               except      => [$RESULTS_NAMESPACE . q[::result],
-                                               $RESULTS_NAMESPACE . q[::collection]
-                                              ],
-                                                )->plugins;
+        require     => $load,
+        search_path => $RESULTS_NAMESPACE,
+        except      => \@NON_LISTABLE,
+    )->plugins;
     my @class_names = ();
+    my $bfs = 'bam_flagstats';
     foreach my $class (@classes) {
         my ($class_name) = $class =~ /(\w+)$/smx;
-        push @class_names, $class_name;
+        if ($class_name ne $bfs) {
+            push @class_names, $class_name;
+        }
     }
+    push @class_names, $bfs;
     return \@class_names;
 }
 
@@ -127,13 +132,12 @@ one by one .
 =cut
 sub add {
     my ($self, $r) = @_;
-
     if(ref $r eq q{ARRAY}) {
         foreach my $el (@{$r}) {
             $self->push($el);
         }
     } else {
-         $self->push($r);
+        $self->push($r);
     }
     return 1;
 }
@@ -157,13 +161,12 @@ sub add_from_dir {
     my $pattern = $id_run ? $id_run : q[];
     $pattern = $path . q[/] . $pattern . q[*.json];
     my @files = glob $pattern;
-    my @classes = @{$self->_result_classes};
+    my @classes = @{_list_classes(1)};
 
     ## no critic (ProhibitBooleanGrep)
 
     foreach my $file (@files) {
         my ($filename, $dir, $extension) = fileparse($file);
-        my $loaded = 0;
         foreach my $class (@classes) {
             if ($filename =~ /$class/smx) {
                 my $module = $RESULTS_NAMESPACE . q[::] . $class;
@@ -171,13 +174,9 @@ sub add_from_dir {
                 my $position = $result->position;
                 if (!defined $lanes || !@{$lanes} || grep {/^$position$/smx} @{$lanes} ) {
                     $self->add($result);
-	        }
-                $loaded = 1;
+                }
                 last;
-	    }
-	}
-        if (!$loaded) {
-            carp qq[Cannot identify class for $file];
+            }
         }
     }
 
@@ -234,8 +233,9 @@ How to define a query is described in documentation for npg_qc::autoqc::qc_store
 sub load_from_staging {
     my ($self, $query) = @_;
 
-    if (!defined $query) { croak q[Query object should be defined]; }
-    #carp 'QUERY ' . $query->to_string;
+    if (!defined $query) {
+      croak q[Query object should be defined];
+    }
 
     my $finder_hash = {id_run => $query->id_run,};
     if ($query->propagate_npg_tracking_schema) {
@@ -261,15 +261,15 @@ sub load_from_staging {
                 my $path = $finder->lane_qc_path($lane);
                 if (-e $path) {
                     push @dirs, $path;
-	        }
+                }
             }
         } else {
             @dirs = @{$finder->lane_qc_paths};
-	}
+        }
 
         foreach my $dir (@dirs) {
             $self->add_from_dir($dir, undef, $query->id_run);
-	}
+        }
     }
 
     return 1;
@@ -359,14 +359,44 @@ sub slice {
         croak q[Can only slice based on either position or check_name or class_name];
     }
 
-    my $c = npg_qc::autoqc::results::collection->new();
+    my $c = __PACKAGE__->new();
 
     foreach my $r (@{$self->results}) {
-        if ($r->$criterion && $r->$criterion eq $value) { $c->add($r); }
+        if ($r->$criterion && $r->$criterion eq $value) {
+            $c->add($r);
+        }
     }
     return $c;
 }
 
+=head2 remove
+
+Utility method wrapping grep functionality to remove from collection those
+elements matching criteria. Returns a new collection without the elements.
+
+my $plex_results = $collection->remove(q[check_name], [ 'qX_yield', 'gc bias' ]);
+
+=cut
+
+sub remove {
+
+  my ($self, $criterion, $values) = @_;
+
+  if (!defined $criterion) { croak q[Cannot remove with undefined criterion]; }
+  if (!defined $values)     { croak qq[Cannot remove with undefined $criterion values]; }
+
+  if ($criterion !~ /check_name|class_name/smx) {
+    croak q[Can only remove based on either check_name or class_name];
+  }
+
+  my $c = __PACKAGE__->new();
+
+  my @filtered = $self->grep(sub { my $obj = $_; none { $obj->$criterion eq $_ } @{$values} } );
+
+  $c->push(@filtered);
+
+  return $c;
+}
 
 =head2 search
 
@@ -381,9 +411,11 @@ used in comparing the objects in the collection to the criteria.
 sub search {
     my ($self, $h) = @_;
 
-    my $c = npg_qc::autoqc::results::collection->new();
+    my $c = __PACKAGE__->new();
     foreach my $r (@{$self->results}) {
-        if ($r->equals_byvalue($h)) { $c->add($r); }
+        if ($r->equals_byvalue($h)) {
+            $c->add($r);
+        }
     }
     return $c;
 }
@@ -406,7 +438,7 @@ sub filter_by_positions {
         $position = $self->get($i)->position;
         if (none {/$position/smx} @{$lanes}) {
             $self->delete($i);
-	}
+        }
         $i--;
     }
 
@@ -444,14 +476,41 @@ sub run_lane_collections {
     foreach my $result (@{$self->results}) {
         my $key = $result->rpt_key;
         if (!defined $map->{$key}) {
-            my $c = npg_qc::autoqc::results::collection->new();
+            my $c = __PACKAGE__->new();
             $c->add($result);
             $map->{$key} = $c;
         } else {
             $map->{$key}->add($result);
-	}
+        }
     }
     return $map;
+}
+
+=head2 run_lane_plex_flags
+
+Returns a hash map where keys are rpt keys for lanes and values are booleans indicating
+whether this lane has plex-level results.
+
+=cut
+sub run_lane_plex_flags {
+    my $self = shift;
+    my $map = $self->run_lane_collections;
+
+    my $flags = {};
+    foreach my $rpt_key (keys %{$map}) {
+        my $rpt_h = npg_qc::autoqc::role::rpt_key->inflate_rpt_key($rpt_key);
+        if (!defined $rpt_h->{'tag_index'}) { # it's a lane-level entry
+            if (!exists $flags->{$rpt_key}) {
+                my $has_plexes = any { $_ eq 'tag metrics' || $_ eq 'tag decode stats'}
+                                 @{$map->{$rpt_key}->check_names()->{'list'}};
+                $flags->{$rpt_key} = $has_plexes ? 1 : 0;
+            }
+        } else { # it's a plex-level entry
+            my $lane_key = npg_qc::autoqc::role::rpt_key->lane_rpt_key_from_key($rpt_key);
+            $flags->{$lane_key} = 1;
+        }
+    }
+    return $flags;
 }
 
 =head2 check_names_map
@@ -464,7 +523,7 @@ sub check_names_map {
 
     my $classes = {};
     my $seen = {};
-    my $checks_list = npg_qc::autoqc::autoqc->checks_list;
+    my $checks_list = $self->checks_list;
     foreach my $check (@{$checks_list}) {
         $classes->{$check} = [];
     }
@@ -474,11 +533,11 @@ sub check_names_map {
         my $check_name = $result->check_name;
         if (!exists $classes->{$class_name}) {
             croak qq[Unknown class name $class_name];
-	}
+        }
         if (!exists $seen->{$check_name}) {
             push @{$classes->{$class_name}}, $check_name;
             $seen->{$check_name} = 1;
-	}
+        }
     }
     return $classes;
 }
@@ -487,7 +546,7 @@ sub check_names_map {
 
 A reference to a list of all check names which have result objects
 in this collection. The names in the list are ordered in the same way
-as class names returned by npg_qc::autoqc::autoqc->checks_list
+as class names returned by the checks_list() attribute.
 
 =cut
 sub check_names {
@@ -496,19 +555,16 @@ sub check_names {
     my $classes = $self->check_names_map();
     my @check_names = ();
     my $map = {};
-    foreach my $check (@{npg_qc::autoqc::autoqc->checks_list}) {
+    foreach my $check (@{$self->checks_list}) {
         push @check_names, @{$classes->{$check}};
         foreach my $name (@{$classes->{$check}}) {
             $map->{$name} = $check;
-	}
+        }
     }
-    return {list => \@check_names, map => $map,};
+    return {'list' => \@check_names, 'map' => $map,};
 }
 
-
-no Moose;
 __PACKAGE__->meta->make_immutable;
-
 
 1;
 __END__
@@ -521,11 +577,9 @@ __END__
 
 =over
 
-=item strict
-
-=item warnings
-
 =item Moose
+
+=item namespace::autoclean
 
 =item MooseX::AttributeHelpers
 
@@ -549,8 +603,6 @@ __END__
 
 =item npg_tracking::illumina::run::folder
 
-=item npg_qc::autoqc::autoqc
-
 =item npg_qc::autoqc::qc_store::options
 
 =item npg_qc::autoqc::qc_store::query
@@ -563,11 +615,11 @@ __END__
 
 =head1 AUTHOR
 
-Author: Marina Gourtovaia E<lt>mg8@sanger.ac.ukE<gt>
+Marina Gourtovaia E<lt>mg8@sanger.ac.ukE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2011 GRL, by Marina Gourtovaia
+Copyright (C) 2016 GRL
 
 This file is part of NPG.
 

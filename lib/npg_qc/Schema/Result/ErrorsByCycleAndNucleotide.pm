@@ -20,19 +20,29 @@ use MooseX::NonMoose;
 use MooseX::MarkAsMethods autoclean => 1;
 extends 'DBIx::Class::Core';
 
+=head1 ADDITIONAL CLASSES USED
+
+=over 4
+
+=item * L<namespace::autoclean>
+
+=back
+
+=cut
+
+use namespace::autoclean;
+
 =head1 COMPONENTS LOADED
 
 =over 4
 
 =item * L<DBIx::Class::InflateColumn::DateTime>
 
-=item * L<DBIx::Class::InflateColumn::Serializer>
-
 =back
 
 =cut
 
-__PACKAGE__->load_components('InflateColumn::DateTime', 'InflateColumn::Serializer');
+__PACKAGE__->load_components('InflateColumn::DateTime');
 
 =head1 TABLE: C<errors_by_cycle_and_nucleotide>
 
@@ -192,7 +202,7 @@ __PACKAGE__->add_unique_constraint(
 
 =head1 RELATIONS
 
-=head2 id_run_tile
+=head2 run_tile
 
 Type: belongs_to
 
@@ -201,15 +211,15 @@ Related object: L<npg_qc::Schema::Result::RunTile>
 =cut
 
 __PACKAGE__->belongs_to(
-  'id_run_tile',
+  'run_tile',
   'npg_qc::Schema::Result::RunTile',
   { id_run_tile => 'id_run_tile' },
   { is_deferrable => 1, on_delete => 'RESTRICT', on_update => 'RESTRICT' },
 );
 
 
-# Created by DBIx::Class::Schema::Loader v0.07036 @ 2014-02-23 17:42:06
-# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:H/BGSsvWr2mkylAS/JFNyg
+# Created by DBIx::Class::Schema::Loader v0.07036 @ 2015-06-30 16:51:56
+# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:lk1w8MhGcVQ5Q5JLR0Ds3A
 
 our $VERSION = '0';
 
@@ -239,6 +249,8 @@ Result class definition in DBIx binding for npg-qc database.
 =item warnings
 
 =item Moose
+
+=item namespace::autoclean
 
 =item MooseX::NonMoose
 

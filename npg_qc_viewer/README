@@ -1,33 +1,43 @@
-Running your own development server:
-------------------------------------
+Testing
+-------
+  
+  cd npg_qc_viewer
+  unset CATALYST_HOME #if set
+  perl Build.PL --installjsdeps
+  ./Build
+  TEST_AUTHOR=1 ./Build test
 
-unset CATALYST_HOME
-export PATH=/software/perl-5.16.3/bin:$PATH
-export PERL5LIB=lib:/software/npg/lib/perl5:/software/npg/cpan/lib/perl5
-# in the npg_qc_viewer directory
-perl bin/npg_qc_viewer_server.pl -p YOUR_PORT
+Using npm:
+  npm test
 
-CATALYST_DEBUG=1 to enable debugging
+Using grunt:
+  grunt -v
+  
+  or for testing by file name pattern match:
 
-CATALYST_AUTOCRUD=1 to enable the autocrud plugin
+  grunt test:<pattern>.html (e.g. `grunt test:*qc*.html`)
 
-autocrud pages - npg tracking:
-read-only: autocrud/npgdb
-admin:     autocrud/site/admin/schema/npgdb
+In browser javascript testing - open files in a browser window:
+  t/client/test.html
+  t/client/test_format_for_csv.html
+  t/client/test_modify_on_view.html
+  t/client/test_qc_outcomes_view.html
+  t/client/test_qc_page.html
+  t/client/test_qc_utils.html
+  t/client/test_collapser.html
 
+Running your own development server
+-----------------------------------
 
+  bin/npg_qc_viewer_server.pl -p YOUR_PORT
 
-Building and testing:
----------------------
+To test manual qc functionality, edit the decryption_key value in npg_qc_viewer.conf
 
-unset CATALYST_HOME
-export PATH=/software/perl-5.16.3/bin:$PATH
-export PERL5LIB=/software/npg/lib/perl5:/software/npg/cpan/lib/perl5
-# in the npg_qc_viewer directory
-perl Build.PL
-CATALYST_DEBUG=0 TEST_AUTHOR=1 ./Build test
-or
-CATALYST_DEBUG=0  TEST_AUTHOR=1 prove -vl t
+To enable debugging set CATALYST_DEBUG=1
 
+Using custom bcviz
+------------------
 
+In bcviz (your working copy) run 'bower link'.
+In npg-qc, npg_qc_viewer directory, run 'bower link bcviz'.
 

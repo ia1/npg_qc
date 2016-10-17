@@ -1,11 +1,22 @@
 package npg_qc_viewer::Model::NpgQcDB;
 
 use Moose;
+use namespace::autoclean;
+use Carp;
 
 BEGIN { extends 'Catalyst::Model::DBIC::Schema' }
 
 our $VERSION  = '0';
-## no critic (Documentation::RequirePodAtEnd)
+
+__PACKAGE__->config(
+  schema_class => 'npg_qc::Schema',
+  connect_info => [], #a fall-back position if connect_info is not defined in the config file
+);
+
+__PACKAGE__->meta->make_immutable;
+
+1;
+__END__
 
 =head1 NAME
 
@@ -19,16 +30,6 @@ A model for the NPG QC database DBIx schema
 
 =head1 SUBROUTINES/METHODS
 
-=cut
-
-__PACKAGE__->config(
-    schema_class => 'npg_qc::Schema',
-    connect_info => [], #a fall-back position if connect_info is not defined in the config file
-);
-
-1;
-__END__
-
 =head1 DIAGNOSTICS
 
 =head1 CONFIGURATION AND ENVIRONMENT
@@ -39,9 +40,13 @@ __END__
 
 =item Moose
 
+=item namespace::autoclean
+
 =item Catalyst::Model::DBIC::Schema
 
 =item npg_qc::Schema
+
+=item Carp
 
 =back
 
@@ -55,7 +60,7 @@ Marina Gourtovaia E<lt>mg8@sanger.ac.ukE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2014 Genome Research Ltd.
+Copyright (C) 2016 Genome Research Ltd.
 
 This file is part of NPG software.
 

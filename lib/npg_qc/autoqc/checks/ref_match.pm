@@ -1,21 +1,16 @@
-#########
-# Author:        John O'Brien
-# Created:       24 September 2009
-
 package npg_qc::autoqc::checks::ref_match;
 
-use strict;
-use warnings;
+use Moose;
 use Carp;
 use English qw(-no_match_vars);
 use File::Basename qw(fileparse);
 use File::Spec::Functions qw(catfile);
-use Cwd 'abs_path';
 use DateTime;
-use Moose;
+use namespace::autoclean;
 use List::Util qw(shuffle);
 use Readonly;
 
+use npg_tracking::util::abs_path qw(abs_path);
 use npg_common::extractor::fastq qw/generate_equally_spaced_reads split_reads/;
 extends 'npg_qc::autoqc::checks::check';
 with    qw/npg_tracking::data::reference::list
@@ -23,7 +18,6 @@ with    qw/npg_tracking::data::reference::list
           /;
 
 our $VERSION = '0';
-### no critic (Documentation::RequirePodAtEnd)
 
 Readonly::Scalar my $UNMAPPED_FLAG      =>      4;
 Readonly::Scalar my $SAMPLE_READ_LENGTH =>     37;
@@ -350,9 +344,8 @@ sub _parse_output {
     return $match;
 }
 
-
-no Moose;
 __PACKAGE__->meta->make_immutable();
+
 1;
 
 __END__
@@ -422,6 +415,12 @@ Needs up to 2.5Gb of Memory reserved when submitted to LSF.
 
 =head1 DEPENDENCIES
 
+=over
+
+=item namespace::autoclean
+
+=back
+
 =head1 BUGS AND LIMITATIONS
 
 Currently only bowtie and smalt have been tested for reliable use as aligners.
@@ -438,7 +437,7 @@ John O'Brien, E<lt>jo3@sanger.ac.ukE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2010 GRL, by John O'Brien
+Copyright (C) 2016 GRL
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

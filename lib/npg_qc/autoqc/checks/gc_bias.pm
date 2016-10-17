@@ -1,14 +1,7 @@
-#########
-# Author:        Aylwyn Scally
-# Created:       2008-11-26
-#
-#
-
 package npg_qc::autoqc::checks::gc_bias;
 
-use strict;
-use warnings;
 use Moose;
+use namespace::autoclean;
 use Carp;
 use English qw(-no_match_vars);
 use Fatal qw(open close);
@@ -19,6 +12,7 @@ use MIME::Base64::Perl;
 use Perl6::Slurp;
 use POSIX qw(WIFEXITED);
 use Readonly;
+use Try::Tiny;
 
 use npg_tracking::util::types;
 
@@ -37,14 +31,14 @@ Readonly::Scalar my $SIG_PIPE_FATAL_ERROR       => 141;
 
 Readonly::Scalar our $EXT                => 'bam';
 
-
-has '+input_file_ext' => (default    => $EXT,);
-has '+aligner'        => (default    => q[fasta],);
+has '+file_type' => (default    => $EXT,);
+has '+aligner'   => (default    => q[fasta],);
 
 has 'window_depth_cmd'  =>  ( is         => 'ro',
                               isa        => 'NpgCommonResolvedPathExecutable',
                               required   => 0,
                               coerce     => 1,
+                              lazy       => 1,
                               default    => q[window_depth],
                             );
 
@@ -148,6 +142,18 @@ sub _build_gcn_file {
     $reference_gcn .= q{.gcn} . $self->window_size();
     return $reference_gcn;
 }
+
+override 'can_run' => sub {
+    my $self = shift;
+    my $r=1;
+    try {
+      $self->window_depth_cmd;
+    } catch {
+      carp qq[On looking for window_depth command: $_];
+      $r= 0;
+    };
+    return $r;
+};
 
 override 'execute' => sub {
     my ($self) = @_;
@@ -308,7 +314,6 @@ sub find_R_library {    ## no critic (NamingConventions::Capitalization)
     return $path_to_R_lib;
 }
 
-no Moose;
 __PACKAGE__->meta->make_immutable();
 
 1;
@@ -351,13 +356,19 @@ npg_qc::autoqc::checks::gc_bias - assess the degree of gc_bias in reads
 
 =head1 DEPENDENCIES
 
+=over
+
+=item namespace::autoclean
+
+=back
+
 =head1 AUTHOR
 
-    John O'Brien, jo3
+John O'Brien, jo3
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2010 GRL, by John O'Brien
+Copyright (C) 2016 GRL
 
 This file is part of NPG.
 

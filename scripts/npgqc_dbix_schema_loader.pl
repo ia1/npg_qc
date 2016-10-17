@@ -21,41 +21,61 @@ my $dsn = sprintf 'dbi:mysql:host=%s;port=%s;dbname=%s',
   $config->{'dbhost'}, $config->{'dbport'}, $config->{'dbname'};
 
 my $roles_map = {};
+my $components_map = {};
 my $role_base = 'npg_qc::autoqc::role::';
 my $generic_role = $role_base . 'result';
+my $component = 'InflateColumn::Serializer';
+my $flator = 'npg_qc::Schema::Flators';
+
 foreach my $check (@{npg_qc::autoqc::autoqc->checks_list}) {
   my ($result_name, $dbix_result_name ) = $generic_role->class_names($check);
-  my @roles = qw/npg_qc::Schema::Flators/;
+  
+  my @roles = ($flator, $generic_role);
   my $rpackage = $role_base . $result_name;
   my $found = eval "require $rpackage";
   if ($found) {
     push @roles, $rpackage;
-  } else {
-    push @roles, $generic_role;
   }
-  $roles_map->{$dbix_result_name} = \@roles;
+  $roles_map->{$dbix_result_name}      = \@roles;
+  $components_map->{$dbix_result_name} = [$component]
 }
-$roles_map->{'Fastqcheck'} = ['npg_qc::Schema::Flators'];
+$roles_map->{'Fastqcheck'}      = [$flator];
+$components_map->{'Fastqcheck'} = [$component];
 
 make_schema_at(
     'npg_qc::Schema',
     {
         debug               => 0,
         dump_directory      => q[lib],
-        naming              => q[current],
+        naming              => { 
+            relationships    => 'current', 
+            monikers         => 'current', 
+            column_accessors => 'preserve',
+        },
         skip_load_external  => 1,
         use_moose           => 1,
         preserve_case       => 1,
+        use_namespaces      => 1,
+        default_resultset_class => 'ResultSet',
+
+        rel_name_map        => sub {#Rename the id relationship so we can access flat versions of the objects and not only the whole trees from ORM.
+          my %h = %{shift@_};
+          my $name=$h{name};
+          $name=~s/^id_//;
+          return $name;
+        },
+
         filter_generated_code => sub {
           my ($type, $class, $text) = @_;
           my $code = $text;
           $code =~ s/use\ utf8;//;
+          $code =~ tr/"/'/;
           if ($type eq 'result') {
-            $code =~ tr/"/'/;
             $code =~ s/=head1\ NAME/\#\#no\ critic\(RequirePodAtEnd\ RequirePodLinksIncludeText\ ProhibitMagicNumbers\ ProhibitEmptyQuotes\)\n\n=head1\ NAME/;
           }
           return $code;
         },
+
         moniker_map         => {
           'alignment_filter_metrics'       => q[AlignmentFilterMetrics],
           'bam_flagstats'                  => q[BamFlagstats],
@@ -71,11 +91,17 @@ make_schema_at(
           'errors_by_cycle'                => q[ErrorsByCycle],
           'errors_by_nucleotide'           => q[ErrorsByNucleotide],
           'errors_by_cycle_and_nucleotide' => q[ErrorsByCycleAndNucleotide],
-          'cumulative_errors_by_cycle'     => q[CumulativeErrorsByCycle]
+          'cumulative_errors_by_cycle'     => q[CumulativeErrorsByCycle],
+          'samtools_stats'                 => q[SamtoolsStats],
         },
-	result_roles_map   => $roles_map,
- 
-        components=>[qw(InflateColumn::DateTime InflateColumn::Serializer)],
+
+        result_roles_map   => $roles_map,
+
+        components => [qw(InflateColumn::DateTime)],
+
+        result_components_map => $components_map,
+
+        additional_classes => (qw[namespace::autoclean],),
     },
     [$dsn, $config->{'dbuser'}, $config->{'dbpass'}]
 );

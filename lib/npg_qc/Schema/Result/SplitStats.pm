@@ -20,6 +20,18 @@ use MooseX::NonMoose;
 use MooseX::MarkAsMethods autoclean => 1;
 extends 'DBIx::Class::Core';
 
+=head1 ADDITIONAL CLASSES USED
+
+=over 4
+
+=item * L<namespace::autoclean>
+
+=back
+
+=cut
+
+use namespace::autoclean;
+
 =head1 COMPONENTS LOADED
 
 =over 4
@@ -266,24 +278,27 @@ __PACKAGE__->has_many(
 
 =item * L<npg_qc::Schema::Flators>
 
-=item * L<npg_qc::autoqc::role::split_stats>
+=item * L<npg_qc::autoqc::role::result>
 
 =back
 
 =cut
 
 
-with 'npg_qc::Schema::Flators', 'npg_qc::autoqc::role::split_stats';
+with 'npg_qc::Schema::Flators', 'npg_qc::autoqc::role::result';
 
 
-# Created by DBIx::Class::Schema::Loader v0.07036 @ 2014-03-17 09:54:25
-# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:S8JTQCkPV9XJPuoFqB2SGw
+# Created by DBIx::Class::Schema::Loader v0.07045 @ 2016-07-01 12:12:00
+# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:p1hAsRueMOQuY1tjWqurWg
 
 __PACKAGE__->set_flators4non_scalar(qw( alignment_depth1 alignment_depth2 info ));
 __PACKAGE__->set_inflator4scalar('tag_index');
 
 
 our $VERSION = '0';
+use MooseX::Aliases;
+
+alias subset => 'ref_name';
 
 __PACKAGE__->meta->make_immutable;
 
@@ -302,6 +317,8 @@ Result class definition in DBIx binding for npg-qc database.
 
 =head1 SUBROUTINES/METHODS
 
+=head2 subset
+
 =head1 DEPENDENCIES
 
 =over
@@ -311,6 +328,10 @@ Result class definition in DBIx binding for npg-qc database.
 =item warnings
 
 =item Moose
+
+=item MooseX::Aliases
+
+=item namespace::autoclean
 
 =item MooseX::NonMoose
 
@@ -334,7 +355,7 @@ Marina Gourtovaia E<lt>mg8@sanger.ac.ukE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2014 GRL, by Marina Gourtovaia
+Copyright (C) 2016 GRL
 
 This file is part of NPG.
 

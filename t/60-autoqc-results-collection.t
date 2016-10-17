@@ -1,21 +1,19 @@
-#########
-# Author:        Marina Gourtovaia
-# Created:       29 July 2009
-#
-
-
 use strict;
 use warnings;
-use Test::More tests => 95;
+use Test::More tests => 121;
 use Test::Exception;
 use Test::Warn;
 use Test::Deep;
+use List::MoreUtils qw/none/; 
 use File::Temp qw/tempdir/;
 
+local $ENV{'HOME'} = q[t/data];
 use npg_qc::autoqc::results::qX_yield;
 use npg_qc::autoqc::results::insert_size;
 use npg_qc::autoqc::results::split_stats;
 use npg_qc::autoqc::results::adapter;
+use npg_qc::autoqc::results::tag_metrics;
+use npg_qc::autoqc::results::tag_decode_stats;
 
 use npg_qc::autoqc::qc_store::options qw/$ALL $LANES $PLEXES/;
 
@@ -26,6 +24,36 @@ my $temp = tempdir( CLEANUP => 1);
 {
     my $c = npg_qc::autoqc::results::collection->new();
     isa_ok($c, 'npg_qc::autoqc::results::collection');
+
+    my $expected = {
+                    qX_yield         => 1,
+                    insert_size      => 1,
+                    sequence_error   => 1,
+                    contamination    => 1,
+                    adapter          => 1,
+                    split_stats      => 1,
+                    spatial_filter   => 1,
+                    gc_fraction      => 1,
+                    gc_bias          => 1,
+                    genotype         => 1,
+                    tag_decode_stats => 1,
+                    bam_flagstats    => 1,
+                    ref_match        => 1,
+                    tag_metrics      => 1,
+                    pulldown_metrics => 1,
+                    alignment_filter_metrics => 1,
+                    upstream_tags => 1,
+                    tags_reporters => 1,
+                    verify_bam_id => 1,
+                    rna_seqc => 1,
+                 };
+    my $actual;
+    my @checks = @{$c->checks_list};
+    foreach my $check (@checks) {
+      $actual->{$check} = 1;
+    }
+    cmp_deeply ($actual, $expected, 'checks listed');
+    is(pop @checks, 'bam_flagstats', 'bam_flagstats at the end of the list');
 }
 
 {
@@ -86,6 +114,53 @@ my $temp = tempdir( CLEANUP => 1);
     is($positions, q[1223557], 'sort by id_run gives the same results as sort by position when id_run is the same in all results');
 }
 
+{ ##### grep
+  my $c = npg_qc::autoqc::results::collection->new();
+  $c->add(npg_qc::autoqc::results::qX_yield->new(position => 8, id_run => 12, path => q[mypath]));
+  $c->add(npg_qc::autoqc::results::insert_size->new(position => 2, id_run => 12, path => q[mypath]));
+  $c->add(npg_qc::autoqc::results::qX_yield->new(position => 6, id_run => 12, path => q[mypath]));
+  $c->add(npg_qc::autoqc::results::insert_size->new(position => 1, id_run => 12, path => q[mypath]));
+  $c->add(npg_qc::autoqc::results::insert_size->new(position => 8, id_run => 12, path => q[mypath]));
+  
+  my @filtered = $c->grep(sub { $_->check_name ne 'qX yield'} );
+
+  is(scalar @filtered, 3, 'size correct');
+
+  my $c1 = npg_qc::autoqc::results::collection->new();
+  $c1->push(@filtered);
+  is($c1->size, 3, 'size correct');
+
+  @filtered = $c->grep(sub {
+    my $obj = $_; none { $obj->check_name eq $_} ('qX yield') }
+  );
+  is(scalar @filtered, 3, 'with list - size correct');
+
+  @filtered = $c->grep(
+    sub { my $obj = $_; none { $obj->check_name eq $_} ('qX yield', 'insert size') }
+  );
+  is(scalar @filtered, 0, 'with list - size correct'); 
+}
+
+{ ##### remove
+  my $c = npg_qc::autoqc::results::collection->new();
+  $c->add(npg_qc::autoqc::results::qX_yield->new(position => 8, id_run => 12, path => q[mypath]));
+  $c->add(npg_qc::autoqc::results::insert_size->new(position => 2, id_run => 12, path => q[mypath]));
+  $c->add(npg_qc::autoqc::results::qX_yield->new(position => 6, id_run => 12, path => q[mypath]));
+  $c->add(npg_qc::autoqc::results::insert_size->new(position => 1, id_run => 12, path => q[mypath]));
+  $c->add(npg_qc::autoqc::results::insert_size->new(position => 8, id_run => 12, path => q[mypath]));
+  
+  my $new_c = $c->remove(q[check_name], ['qX yield'] );
+  
+  is($new_c->size, 3, 'size correct');
+  
+  $new_c = $c->remove(q[check_name], ['qX yield', 'insert size'] );
+  
+  is($new_c->size, 0, 'size correct');
+  
+  $new_c = $c->remove(q[check_name], ['adapter'] );
+  
+  is($new_c->size, 5, 'size correct');
+}
 
 {
     my $c = npg_qc::autoqc::results::collection->new();
@@ -285,13 +360,12 @@ my $temp = tempdir( CLEANUP => 1);
     is ($c->size(), 0, 'empty collection because non-existing position required by a filter');
 }
 
-
 {
     my $load_dir = q[t/data/autoqc/load];
     my $c = npg_qc::autoqc::results::collection->new();
-    $c->add_from_dir($load_dir);
+    lives_ok {$c->add_from_dir($load_dir)}
+       'non-autoqc json file successfully skipped';
     is($c->size(), 3, 'three results added by de-serialization');
-    warnings_like {$c->add_from_dir($load_dir)} [ qr/Cannot\ identify\ class\ for\ t\/data\/autoqc\/load\/some\.json/], 'warning when an object for a json file does nor exist';
 }
 
 {
@@ -348,7 +422,7 @@ my $temp = tempdir( CLEANUP => 1);
     $c1 = $rlc->{q[12:8:1]};
     is ($c1->size, 2, 'run-lane collection size');
     is (join(q[:], $c1->get(0)->id_run, $c1->get(0)->position, $c1->get(0)->tag_index,), q[12:8:1], 'correct first object');
-    is (join(q[:], $c1->get(1)->id_run, $c1->get(1)->position, $c1->get(1)->tag_index,), q[12:8:1], 'correct first object');
+    is (join(q[:], $c1->get(1)->id_run, $c1->get(1)->position, $c1->get(1)->tag_index,), q[12:8:1], 'correct first object');    
 }
 
 {
@@ -363,12 +437,6 @@ my $temp = tempdir( CLEANUP => 1);
 
     $c->add_from_staging($id_run, [5,6]);
     is($c->size, 22, 'lane results added from staging area for lanes 5 and 6');
-}
-
-
-{
-    my $c = npg_qc::autoqc::results::collection->new();
-    is (join(q[ ], (sort @{$c->_result_classes})), q[adapter alignment_filter_metrics bam_flagstats contamination gc_bias gc_fraction genotype insert_size pulldown_metrics qX_yield ref_match sequence_error spatial_filter split_stats tag_decode_stats tag_metrics tags_reporters upstream_tags verify_bam_id], 'list of result classes');
 }
 
 {
@@ -420,73 +488,114 @@ my $temp = tempdir( CLEANUP => 1);
 }
 
 {
-  my $other =  join(q[/], $temp, q[nfs]);
-  mkdir $other;
-  $other =  join(q[/], $other, q[sf44]);
-  mkdir $other;
+    my $other =  join(q[/], $temp, q[nfs]);
+    mkdir $other;
+    $other =  join(q[/], $other, q[sf44]);
+    mkdir $other;
 
-  `cp -R t/data/nfs/sf44/IL2  $other`;
-  my $archive = join q[/], $other,
-                q[IL2/analysis/123456_IL2_1234/Data/Intensities/Bustard_RTA/PB_cal/archive];
-  mkdir join q[/], $archive, 'lane1';
-  mkdir join q[/], $archive, 'lane2';
-  mkdir join q[/], $archive, 'lane2', 'qc';
-  mkdir join q[/], $archive, 'lane3';
-  my $lqc = join q[/], $archive, 'lane3', 'qc';
-  mkdir $lqc;
-  my $file = join q[/], $archive, 'qc', '1234_3.insert_size.json';
-  `cp $file $lqc`;
-  mkdir join q[/], $archive, 'lane4';
-  $lqc = join q[/], $archive, 'lane4', 'qc';
-  mkdir $lqc;
-  $file = join q[/], $archive, 'qc', '1234_4.insert_size.json';
-  `cp $file $lqc`;
+    `cp -R t/data/nfs/sf44/IL2  $other`;
+    my $archive = join q[/], $other,
+      q[IL2/analysis/123456_IL2_1234/Data/Intensities/Bustard_RTA/PB_cal/archive];
+    mkdir join q[/], $archive, 'lane1';
+    mkdir join q[/], $archive, 'lane2';
+    mkdir join q[/], $archive, 'lane2', 'qc';
+    mkdir join q[/], $archive, 'lane3';
+    my $lqc = join q[/], $archive, 'lane3', 'qc';
+    mkdir $lqc;
+    my $file = join q[/], $archive, 'qc', '1234_3.insert_size.json';
+    `cp $file $lqc`;
+    mkdir join q[/], $archive, 'lane4';
+    $lqc = join q[/], $archive, 'lane4', 'qc';
+    mkdir $lqc;
+    $file = join q[/], $archive, 'qc', '1234_4.insert_size.json';
+    `cp $file $lqc`;
 
-  local $ENV{TEST_DIR} = $temp;
-  my $id_run = 1234;
+    local $ENV{TEST_DIR} = $temp;
+    my $id_run = 1234;
 
-  my $c = npg_qc::autoqc::results::collection->new();
-  $c->add_from_staging($id_run);
-  is ($c->size, 16, 'loading main qc results only');
+    my $c = npg_qc::autoqc::results::collection->new();
+    $c->add_from_staging($id_run);
+    is ($c->size, 16, 'loading main qc results only');
 
-  $c = npg_qc::autoqc::results::collection->new();
-  $c->add_from_staging($id_run, undef, $PLEXES);
-  is ($c->size, 2, 'loading autoqc for plexes only');
+    $c = npg_qc::autoqc::results::collection->new();
+    $c->add_from_staging($id_run, undef, $PLEXES);
+    is ($c->size, 2, 'loading autoqc for plexes only');
 
-  $c = npg_qc::autoqc::results::collection->new();
-  $c->add_from_staging($id_run, [1,4,6], $PLEXES);
-  is ($c->size, 1, 'loading autoqc for plexes only for 3 lanes');
+    $c = npg_qc::autoqc::results::collection->new();
+    $c->add_from_staging($id_run, [1,4,6], $PLEXES);
+    is ($c->size, 1, 'loading autoqc for plexes only for 3 lanes');
 
-  $c = npg_qc::autoqc::results::collection->new();
-  $c->add_from_staging($id_run, [1,6], $PLEXES);
-  is ($c->size, 0, 'loading autoqc for plexes only for 2 lanes, one empty, one no-existing');
+    $c = npg_qc::autoqc::results::collection->new();
+    $c->add_from_staging($id_run, [1,6], $PLEXES);
+    is ($c->size, 0, 'loading autoqc for plexes only for 2 lanes, one empty, one no-existing');
 
-  $c = npg_qc::autoqc::results::collection->new();
-  $c->add_from_staging($id_run, [1,6], $ALL);
-  is ($c->size, 4, 'loading all autoqc including plexes  for 2 lanes, for plexes one empty, one no-existing');
+    $c = npg_qc::autoqc::results::collection->new();
+    $c->add_from_staging($id_run, [1,6], $ALL);
+    is ($c->size, 4, 'loading all autoqc including plexes  for 2 lanes, for plexes one empty, one no-existing');
 
-  $c = npg_qc::autoqc::results::collection->new();
-  $c->add_from_staging($id_run, [4], $ALL);
-  is ($c->size, 3, 'loading all autoqc including plexes  for 1 lane');
+    $c = npg_qc::autoqc::results::collection->new();
+    $c->add_from_staging($id_run, [4], $ALL);
+    is ($c->size, 3, 'loading all autoqc including plexes  for 1 lane');
 
-  $c = npg_qc::autoqc::results::collection->new();
-  $c->add_from_staging($id_run, [], $ALL);
-  is ($c->size, 18, 'loading all autoqc');
+    $c = npg_qc::autoqc::results::collection->new();
+    $c->add_from_staging($id_run, [], $ALL);
+    is ($c->size, 18, 'loading all autoqc');
 
-  $c = npg_qc::autoqc::results::collection->new();
-  $c->add_from_staging(234, [1,4,6], $PLEXES);
-  is ($c->size, 0, 'loading autoqc for plexes only for 3 lanes');
+    $c = npg_qc::autoqc::results::collection->new();
+    $c->add_from_staging(234, [1,4,6], $PLEXES);
+    is ($c->size, 0, 'loading autoqc for plexes only for 3 lanes');
 
-  $c = npg_qc::autoqc::results::collection->new();
-  $c->add_from_staging(234);
-  is ($c->size, 0, 'nothing loaded');
+    $c = npg_qc::autoqc::results::collection->new();
+    $c->add_from_staging(234);
+    is ($c->size, 0, 'nothing loaded');
 
-  $c->add_from_dir($lqc);
-  is ($c->size, 1, 'loading from directory');
-  $c->add_from_dir($lqc, [], 234);
-  is ($c->size, 1, 'loading from directory');
-  $c->add_from_dir($lqc, [], 234);
-  is ($c->size, 1, 'loading from directory');
+    $c->add_from_dir($lqc);
+    is ($c->size, 1, 'loading from directory');
+    $c->add_from_dir($lqc, [], 234);
+    is ($c->size, 1, 'loading from directory');
+    $c->add_from_dir($lqc, [], 234);
+    is ($c->size, 1, 'loading from directory');
+}
+
+{
+    my $c = npg_qc::autoqc::results::collection->new();
+    $c->add(npg_qc::autoqc::results::qX_yield->new(   position => 8, id_run => 12, path => q[mypath]));
+    $c->add(npg_qc::autoqc::results::qX_yield->new(   position => 8, id_run => 12, tag_index => 0, path => q[mypath]));
+    $c->add(npg_qc::autoqc::results::qX_yield->new(   position => 8, id_run => 12, tag_index => 1, path => q[mypath]));
+    $c->add(npg_qc::autoqc::results::split_stats->new(position => 8, id_run => 12, path => q[mypath]));
+    $c->add(npg_qc::autoqc::results::adapter->new(    position => 8, id_run => 12, path => q[mypath]));
+    $c->add(npg_qc::autoqc::results::adapter->new(    position => 7, id_run => 12, path => q[mypath]));
+    $c->add(npg_qc::autoqc::results::qX_yield->new(   position => 8, id_run => 13, path => q[mypath]));
+    $c->add(npg_qc::autoqc::results::insert_size->new(position => 8, id_run => 13, path => q[mypath]));
+    $c->add(npg_qc::autoqc::results::insert_size->new(position => 6, id_run => 14, path => q[mypath]));
+    $c->add(npg_qc::autoqc::results::insert_size->new(position => 2, id_run => 14, path => q[mypath]));
+
+    my $flags = $c->run_lane_plex_flags();
+
+    is (scalar keys %{$flags}, 5, 'five run lane entries');
+
+    my @keys = qw/12:8 12:7 13:8 14:6 14:2/;
+    foreach my $key (@keys) {
+        ok( exists $flags->{$key}, "entry $key exists");
+    }
+
+    my $one_key = shift @keys;
+    foreach my $key (@keys) {
+        is($flags->{$key}, 0, "entry $key is zero");
+    }
+    is($flags->{$one_key}, 1, "entry $one_key is one");
+    
+    $c->add(npg_qc::autoqc::results::tag_metrics->new(position => 8, id_run => 12, path => q[mypath]));
+    $c->add(npg_qc::autoqc::results::tag_metrics->new(position => 2, id_run => 14, path => q[mypath]));
+    $c->add(npg_qc::autoqc::results::tag_decode_stats->new(position => 2, id_run => 22, path => q[mypath]));
+    $flags = $c->run_lane_plex_flags();
+    is (scalar keys %{$flags}, 6, 'six run lane entries');
+    foreach my $key (qw/22:2 12:8 14:2/) {
+        is($flags->{$key}, 1, "entry $key is one");
+    }
+    foreach my $key (qw/12:7 13:8 14:6/) {
+        is($flags->{$key}, 0, "entry $key is zero");
+    }
 }
 
 1;

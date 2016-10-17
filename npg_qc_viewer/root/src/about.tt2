@@ -16,7 +16,6 @@
   <li>qX yield (threshold quality 20)</li>
   <li>insert size</li>
   <li>adapter</li>
-  <li>contamination</li>
   <li>ref_match</li>
   <li>split statistics</li>
   <li>sequence mismatch</li>
@@ -32,33 +31,8 @@
 </div>
 
 <div class="text_section">
-<h2>Main menu description</h2>
-<table summary="Main menu description">
-<tr><th>Menu button label </th><th>Action</th></tr>
-<tr><th>Last Week</th>
-<td>Checks for all libraries that were created within the last week</td></tr>
-<tr><th>Last Fortnight</th>
-<td>Checks for all libraries that were created within the last two weeks</td></tr>
-<tr><th>Runs</th>
-<td>A list of all runs with links to qc data for individual runs</td></tr>
-<tr><th>Libraries</th>
-<td>A list of all libraries with links to qc data for individual libraries</td></tr>
-<tr><th>Samples</th>
-<td>A list of all samples with links to qc data for individual samples</td></tr>
-<tr><th>Studies</th>
-<td>A list of all studies with links to qc data for individual studies</td></tr>
-<tr><th>Help</th>
-<td>Displays this page</td></tr>
-<tr><th>NPG Tracking</th>
-<td>A link to NPG tracking web interface</td></tr>
-<tr><th>NPG QC</th>
-<td>A link to NPG QC web interface</td></tr>
-</table>
-</div>
-
-<div class="text_section">
-<h2>Additional queries</h2>
-<table summary="Additional queries">
+<h2>Examples of Queries</h2>
+<table summary="Examples of queries">
   <tr><th class="url_column" >URL</th><th>Action</th><th>URL Example</th></tr>
   <tr>
     <td class="url_column">/checks/runs/XXX,<br /> where XXX is the ID of the run</td>
@@ -117,9 +91,9 @@
      <td></td>
   </tr>
   <tr>
-    <td class="url_column">/checks/libraries?name=XXX,<br /> where XXX is the name of the library</td>
+    <td class="url_column">/checks/libraries?id=XXX,<br /> where XXX is the id of the library</td>
     <td>qc checks for all lanes for a library</td>
-    [% url = c.uri_for_action(c.controller('Checks').action_for('libraries'), {name=>'129P2_SLX_500_DSS_2'}); %]
+    [% url = c.uri_for_action(c.controller('Checks').action_for('libraries'), {id=>'2460276069794:A2'}); %]
     <td><a href="[% url %]">[% url %]</a></td>
   </tr>
   <tr>
@@ -129,18 +103,19 @@
     <td><a href="[% url %]">[% url %]</a></td>
   </tr>
   <tr>
-    <td class="url_column">/checks/studies/XXX,<br /> where XXX is a valid study ID</td>
-    <td>qc checks for all lanes for in a study</td>
-     [% url = c.uri_for_action(c.controller('Checks').action_for('studies'), '171') %]
-    <td><a href="[% url %]">[% url %]</a></td>
-  </tr>
-  <tr>
-    <td class="url_column">/checks/weeks/X,<br /> where X is a positive integer</td>
-    <td>Checks for all libraries that were created within the last X weeks</td>
-     [% url = c.uri_for_action(c.controller('Checks').action_for('weeks'), '3') %]
+    <td class="url_column">/checks/pool/XXX,<br /> where XXX is a valid sample ID</td>
+    <td>qc checks for all lanes for a pool</td>
+    [% url = c.uri_for_action(c.controller('Checks').action_for('pools'), 'NT18086M') %]
     <td><a href="[% url %]">[% url %]</a></td>
   </tr>
 </table>
+</div>
+
+<div class="text_section">
+<h2>Manual QC</h2>
+<ul>
+  <li>A help page with information about how to use SeqQC to update manual QC outcomes can be found <a href="/checks/about_qc_proc">here</a></li>
+</ul>
 </div>
 
 </div>

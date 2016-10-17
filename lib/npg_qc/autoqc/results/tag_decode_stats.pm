@@ -1,13 +1,7 @@
-#########
-# Author:        gq1
-# Created:       16 November 2009
-#
-
 package npg_qc::autoqc::results::tag_decode_stats;
 
-use strict;
-use warnings;
 use Moose;
+use namespace::autoclean;
 
 extends qw(npg_qc::autoqc::results::result);
 with qw(npg_qc::autoqc::role::tag_decode_stats);
@@ -48,7 +42,7 @@ has 'errors_good'          =>  (isa => 'Maybe[HashRef]',
                                default  => sub { {} },
                                );
 
-no Moose;
+__PACKAGE__->meta->make_immutable;
 
 1;
 
@@ -78,6 +72,8 @@ __END__
 
 =item Moose
 
+=item namespace::autoclean
+
 =item npg_qc::autoqc::results::result
 
 =item npg_qc::autoqc::role::tag_decode_stats
@@ -90,11 +86,11 @@ __END__
 
 =head1 AUTHOR
 
-Author: Guoying Qi E<lt>gq1@sanger.ac.ukE<gt><gt>
+Guoying Qi E<lt>gq1@sanger.ac.ukE<gt><gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2010 GRL, by Guoying Qi
+Copyright (C) 2016 GRL
 
 This file is part of NPG.
 

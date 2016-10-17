@@ -1,5 +1,404 @@
 LIST OF CHANGES FOR NPG-QC PACKAGE
 
+ - make bam_flagstats check runnable under the qc script
+ - remove autoqc loader backwards compatibility with analysis code
+   that does not generate related results for the bam_flagstats results
+ - Arguments given to the qc script are passed through to the relevant
+   qc check object.
+ - QC script does not try to infer the location of input files.
+ - QC script accepts the rpt_list argument.
+ - tag_index attribute of the check object cannot be assigned to undef.
+ - added Broad Institute's RNA-SeQC to autoqc QC checks
+ - SeqQC - genotype view fixed (escaping)
+
+release 62.1
+ - Bug fix in build action for cgi files.
+
+release 62.0
+ - Towards composition-based autoqc:
+   - npg_qc::autoqc::results::result - Composition-aware,
+     id_run, position and path attributes become optional.
+   - npg_qc::autoqc::qc_store - Use DBIx syntax for quering on tag_index
+     (future compatibility with planned table schema changes), db load
+     compositions of size 1 only.
+   - npg_qc::autoqc::db_loader - Result classes support composition,
+     but most tables have not been converted yet. Do not generate
+     composition if no support in the result table.
+   - npg_qc::Schema::ResultSet - Enchancement for a search for tables that
+     do not yet support compositions: convert undefined values
+     for columns under a unique constraint to database defaults.
+ - SeqQC - outdated template for split_stats removed
+ - genotype role refactored to remove hardcoded uri encoding            
+ - remove contamination check that is not run any longer,
+   result object remains
+ - to keep similar code together and to avoid listing explicitly
+   an increasing number of non-runnable checks, move checks_list()
+   method to the collection object
+ - genotype check, croak if error closing samtools pileup command
+ - norm_fit
+     - modify peak finding to allow for peaks in first/last bin
+     - added monotonity condition when estimating stdev
+     - drop stdev when outputting filtered modes
+ 
+release 61.2
+ - SeqQC:
+   - Reintroduce collapser
+   - using grunt/npm to automate js testing
+ - VerifyBAMId changed condition MIN_AVG_DEPTH from > 4 to > 2 for fail
+
+release 61.1
+ - SeqQC
+   - Using --force-latest for bower install deps during Build
+ - improve test robustness (larger page sample for mech to check)
+
+release 61.0
+ - using test matrix with node 4.4.2 and 0.12.9 for travis
+ - help page for manual qc
+ - redesign of both client and server side for generic qc outcome updates
+ - updates to already stored outcomes, including final outcomes,
+     are not an error, will be skipped
+ - require that all library outcomes are marked explicitly before the
+     final sequencing outcome is saved
+ - custom class for authentication in tests - works with JSON POST requests
+ - mqc widgets not shown if no lims data available
+ - title for pages with data for one id run show run status
+ - SeqQC
+   - bugfix only build request for qc_outcomes if rptkeys in page
+   - upgrading jquery to 2.2.3 from 2.1.4
+   - upgrading requirejs to 2.2.0 from 2.1.20
+   - upgrading bcviz to 1.3.2 from 1.3.1
+   - upgrading table-export to 1.5.0 from 1.2.2
+   - upgrading qunit to 1.23.0 from 1.20.0
+ - add unique db constraint for short descriptions in qc outcome
+   dictionaries; the constraints should have been set when the tables
+   were created 
+
+release 60.0
+ - JSON service (retrieval) for qc outcomes
+ - update link to picard in POD
+ - SeqQC:
+   - remove use of autocrud plugin - it's never been used
+   - simplify the authorisation and it make more secure (do not fetch
+     user credentials from the url), move the code to a new User model
+   - in tests extend the User model to allow for getting user credentials
+     from the url
+   - avoid warnings in tests by setting the default for the username to
+     an empty string
+   - if the user is logged in and is authorised to do manual qc, display
+     a visual cue on the top of the page
+   - tag metrics column moved next to the column with tag index and tag sequence
+   - show deplexing percent for individual tags in tag metrics column
+   - retrieve qc outcomes from npg_qc_viewer qcoutcomes JSON service for
+     initial page rendering
+
+release 59.8
+ - give LIMs time to process posting qc outcomes as individual events
+ - SeqQC
+   - upgrading bcviz to 1.3.1 from 1.3.0 (individual minified files)
+
+release 59.7
+ - SeqQC
+   - bower configuration files in npg_qc/npg_qc_viewer
+   - moving client test files to npg_qc/npg_qc_viewer/t/client
+   - fix regression, missing require for table-export
+
+release 59.6
+ - SeqQC
+   - generating bcviz plots only when they will become visible and remove
+     them when they will not be visible
+   - set max number of plexes for manual QC as 400
+
+release 59.5
+ - autoqc results db loader: an option to force a re-build of related objects
+ - SeqQC
+   - fix warning about undef value in the adapter template
+   - fix closing div tag in verify bam id template 
+   - upgrading jquery to 2.1.4 from 2.0.3
+   - upgrading requirejs to 2.1.20 from 2.1.8
+   - upgrading qunit to 1.20.0 from 1.15.0
+   - upgrading bcviz to 1.3.0 from 1.2.1
+ - travis ci testing perl modules for npg_qc and npg_qc_viewer
+ - require DBD::SQLite@1.48 to run tests
+
+release 59.4
+ - saving manual qc values for libraries - allow for an undefined or empty
+   list of tag indices
+ - tags in lanes from GCLP runs are not subject to library qc
+ - composition-based autoqc results - disable version checking between the version
+   of the module that serialized the object and the version of the same module that
+   is performing de-serialization
+ - script to import manual qc values from the old warehouse RT#493757
+ - update_outcome method of mqc entities renamed to update_nonfinal_outcome
+ - a new update_outcome method allows for update of final outcomes
+ - method to toggle stored final manual qc outcomes
+ - mqc reporter - reporting might cause a loss of link between the product and
+   flowcell data in the ml warehouse, so prepare all data, then report
+ - SeqQC
+   - New functionality to allow export summary table to CSV
+
+release 59.3
+ - transparent search query for autoqc objects irrespectively of the details of
+   object's database implementation (in-table identifies or composition)
+ - custom parent class for resultset objects
+ - calling ->new() on resultset object to create a new result replaced with
+   calling more intuitive ->new_result()
+ - upgrade genotype check to use samtools1 and bcftools1
+ - SeqQC
+   - New dictionary table for plex level library MQC. (Issue 238)
+
+release 59.2
+ - library-level manual QC for individual plexes.
+
+release 59.1
+ - 'write2file' method of autoqc result objects removed since it duplicated
+     the 'store' method
+ - alternative base class npg_qc::autoqc::results::base for autoqc results objects,
+     able to represent results that are derived from merged files and described by
+     a composition of multiple components
+ - autoqc result objects for samtools stats file, sam/bam headers and digests
+     derived from the new base class
+ - bam_flagstats result extension to produce samtools_stats and sequence_summary
+     results (related objects) either at run time or later
+ - database tables for storing component and composition objects
+ - autoqc db loader extension
+     - to load data represented by classes derived from the new base class
+     - to build related objects in memory and to load them to the database
+       bypassing serialization to a file - a way to save cram headers and stats
+       file where the analysis pipeline did not run the current code that
+       produces samtools_stats and sequence_summary objects as individual files
+     - ability to mark records as current
+ - reporter for manual QC results retrieves LIMs info from ml warehouse;
+     it skips GCLP runs RT#480489.
+ - tag_sniff new option to truncate tag sequences
+ - tag_sniff checks common tag sequences against tag sets in the warehouse
+ - SeqQC
+   - add the total yield in library view RT#488973
+   - summary table: display supplier sample name along the library barcode RT#488964,
+     remove separate sample column
+   - fix missing composite genotype check visualisation broken when cleaning
+     template for ml warehouse
+   - fix missing space between forward and reverse when reporting percent gc 
+     fraction
+ - genotype check data extraction scripts - updated scripts to fail more readily
+    and informatively when an iRODS error occurs
+
+release 59.0
+ - SeqQC 
+   - remove ajax proxy controller
+   - stop 00 tests accessing live db credentials and databases
+   - using mlwarehouse for dwh information displayed in SeqQC viewer
+   - removing tests related to template compilation
+   - providing links to lims for pool/library/sample
+ - autoqc check and autoqc objects: remove unused 'sequence_type' attribute
+ - autoqc check and result objects - use existing roles for id_run and
+   position definitions
+ - result object - to remove dependency on id run, position and tag index,
+     allow individual results to overwrite the root of the output file name
+ - refactor autoqc check to use file_type attribute name instead of
+   input_file_ext
+ - tags_reporters check - remove hardcoded solexa path
+ - genotype and verify_bam_id_checks - use standard way of reporting run-time
+   problems
+ - bam_flagstats
+     - one call to compute all metrics
+     - method for finding stats files
+     - if id_run not given, derive the root of the output file name from
+       the input sequence file name 
+
+release 58.9
+ - move method for file name creation from SeqQC to autoqc so that it's
+   more accessible
+ - SeqQC
+     - upstream_tags template - do not report potentially confusing tag index value when
+        there is no id_run in the high-scoring tags table
+ - remove misleading bam_flagstats check info
+
+release 58.8
+ - SeqQC
+     - display insert size normal fit confidence and number of modes in the 
+       summary table
+     - do not show adaptor plots for low contamination
+     - provenance in lane title not in every check
+     - prepend all page titles with application name and version
+     - different page title colour if running in non-live environment
+     - use updated LIMs server url
+     - link to NPG tracking web server running on the same host as this app
+     - showing reference species and version below lane titles
+ - Using container configuration for travis
+
+release 58.7
+ - bam_flagstats autoqc result object:
+     new field, subset, added to be used instead of human_split
+     human_split is retained for now to be compatible with existing data and code
+ - autoqc loader will only load fields that correspond to database columns
+
+release 58.6
+ - Using "jquery-unveil" plugin for heatmaps
+ - Removing data from DOM after passing them to local variables
+ - Nulling variables after using them for bcviz to free memory
+ - Moved simplified file name generation to this package
+ - Removing gc bias and qX Yield checks when looking at non-run views
+ - Removing collapser
+ - Using latest release of bcviz (1.2.1)
+
+release 58.5
+ - stop using depricated Class::MOP::load_class method
+ - use namespace::autoclean instead of "no Moose" in Moose objects
+ - using make_immutable in Moose objects
+
+release 58.4
+ - Creating a cache in SeqStore model to reduce file system access. 
+    Improving query - using keys for tables.
+ - Moving FileFinder functionality into SeqQC from seq_commons.
+ - Cache of catalyst actions and uri in template.
+ - Templates are configured to be checked for changes every 10 hours.
+ - Connections to database for fastqcheck are passed to model from 
+    template.
+ - Test modules catch/test for warnings for unitilized ids and for 
+    cases where it was not possible to locate a folder.
+
+release 58.3.1
+ - Updating Readme in npg_qc_viewer for changes in deploy procedure.
+ - Fixing qXYield total for run and sample, now it calculates from actual values 
+    in the table, does not recalculate from collection.
+ - genotype check: reduce min_sample_call_rate parameter for genotype match from 95% to 75%, and
+     min_common_snps from 21 to 20. This will allow (Fluidigm) qc genotypes with 20 calls to be
+    identified as possible duplicates when using the standard set of 26 QC SNPS (W30467)
+
+release 58.3
+ - default autoqc result object creation - do not set tag index to undef to
+   avoid this field being set when serializing to json with newer Moose
+
+release 58.2
+ - convert local path to nfs for linked tools when building fastq_summ
+
+release 58.1
+ - compile fastq_summ with samtools-1.2 and htslib-1.2.1
+ - Removing global functions from manual_qc.js
+ - Logic for preliminary outcomes for MQC
+ - New undecided outcome for MQC
+ - update scripts for genotype check data preparation
+    - to allow specification of iRODS zone with an environment variable
+    - perlcritic issues and version strings
+ - gt_pack recognises version 02 headers in append mode
+ - DBIx binding generation - keep column name case when generating accessors
+
+release 58.0
+ - skip running legacy gcbias if window_depth not available
+ - compile fastq_summ executable during the npg_qc build, skip
+     compilation if samtools is not on the path
+ - C code clean-up to remove warnings in compilation
+ - SeqQC daemon to set CATALYST_HOME relative to bin so that
+     the production user does not have to have this definition
+ - SeqQC build optionally fetches javascript dependencies
+ - added scripts to handle generation of data for autoqc genotype checks
+
+release 57.12
+ - Removing MQC logic from templates and moving it to JS
+ - Adding a controller to provide MQC status for a run using REST
+ - Adding a role to provide functionality for 401 responses
+ - Validation for DWH->MQC outcome integrity during mqc for logged mqc-ing user
+ - Fixing id-username data in test data to fix patches in controllers 
+     which validate username
+
+release 57.11
+ - take into account old-style tag metrics results when deciding
+     whether the lane has plexes
+ - be compatible with latest changes to the db_connect role
+ - ensure that tests do not access user's home directory
+
+release 57.10
+ - total_reads now returns 0 when num_total_reads is 0 rather than undef
+ - add support for metrics files produced by bamstreamingmarkduplicates
+ - npg_qc build for web server does not compile executables
+ - functionality of the util package in SeqQC merged into the rpt_key autoqc role,
+     the package removed
+ - api::error package moved to Util::Error
+ - using node-qunit-phantomjs to run headless tests
+ - tests for basic functionality for mqc Javascript code
+ - adding configuration for blanket
+ - updating readme for changes in testing procedure
+
+release 57.9
+ - autoqc results collection class - add a method for inferring whether
+     a lane has plexes from results themselves
+ - SeqQC - steps towards making display of autoqc results and manual qc process
+   independent of availability of warehouse data:
+    - use the new collection method to decide whether to display a link to
+       plex results (previously warehouse data were used for this)
+    - if plex results are available, always display a link to them
+ - SeqQC - remove vestigial code for batch id retrieval 
+ - SeqQC build: remove --linkable-bcviz-path option since dependency on bcviz
+   is now managed by bower
+ - SeqQC: Ajax controller removed (was used as a proxy for now discontinued
+   requests to LIMs web server)
+ - following restructuring of bcviz, amend statements for import of bcviz libraries
+ - changes to allow genotype checks to be run on cram files
+ - list of human references (with chr.naming convention) used by genotype check
+     moved to file in the genotype repository
+ - GRCh38 human references added to the list
+ - gt_utils (gt_pack and find_gt_match C programs) added to Build install
+
+release 57.8.1
+ - add temporary file name option to bamtofastq command
+
+release 57.8
+ - Using bower to manage javascript component dependencies.
+ - Using bcviz v1.1.0 which now supports bower.
+ - use Biobambam bamtofastq in place of Picard utility in adapter qc check
+
+release 57.7
+ - removed redundant methods from NpgDB model
+ - New javascript functionality to process mqc. MQC outcomes are changed using AJAX 
+   calls to the controller directly.
+ - mqc controller now provides with the functionality for mqc through asynchronous calls.
+ - mqc controller does not saves a log in the tracking database when mqc outcomes are
+   updated.
+
+release 57.6
+ - Added mqc_outcome_reporter
+ - Added a new column to the mqc entity and historic table to keep separate track of who
+    updates the record through the web page and who was the last user to modify the row.
+    Updates to tests to deal with the new schema.
+ - MqcOutcomeEnt validates outcomes are final before updating them as reported.
+
+release 57.5
+ - amend location of composite genotype data (composite_results_loc) in npg_qc_viewer.conf
+
+release 57.4
+ - in order to be able to retrieve values of foreign keys without
+     fetching the row in the parent table, DBIx classes generated with
+     an option to drop id_ at the start of the relation name
+ - InflateColumn::Serializer component added selectively to autoqc classes
+     rather than to all classes
+ - mqc models (DBIx) functionality extended to create a method for
+   updating/creating outcomes
+ - column name fixed in the mqc_outcome_hist table
+ - SeqQC viewer: top horizontal menu removed, Help link added to the menu on the right
+ - SeqQC viewer: NPG links point to correct production/dev servers
+ - SeqQC viewer: superfluous javascript code removed
+ - SeqQC viewer: checks/runs page removed
+ - SeqQC viewer: links to individual entities on the right removed
+ - SeqQC viewer: if results for one run only are displayed and the request was not explicitly
+     from staging or path, a link back to the run SeqQC page is displayed on the right
+
+release 57.3
+ - SeqQC: removed pages that are not used any more (studies, samples, libraries,
+   people, weekly reports)
+
+release 57.2
+ - updated the way bcviz functions are called from SeqQC
+ - Added tables for manual qc.
+
+release 57.1
+
+ - d3 bcviz rendering of adapter, insert size and sequence mismatch plots
+ - page rearrangement to display ref match and old contamination results side-by-side removed
+ - SeqQC templates, client-side scripts and config files installed to a directory
+   under the install_base path; if a bcviz path is given, a link to it is created,
+   old bcviz link is overwitten in this case
+ - removed generation of google chart api urls
+
 release 57.0
  - incorporated SeqQC viewer
 

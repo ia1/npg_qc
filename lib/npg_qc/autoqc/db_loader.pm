@@ -1,24 +1,24 @@
-#########
-# Author:        Marina Gourtovaia
-# Created:       February 2014
-#
-
 package npg_qc::autoqc::db_loader;
 
 use Moose;
+use namespace::autoclean;
+use Class::Load qw/load_class/;
 use Carp;
 use JSON;
 use Try::Tiny;
 use Perl6::Slurp;
 use List::MoreUtils qw/none/;
+use Readonly;
 
-use npg_qc::Schema;
 use npg_tracking::util::types;
+use npg_qc::Schema;
 use npg_qc::autoqc::role::result;
 
 with qw/MooseX::Getopt/;
 
 our $VERSION = '0';
+
+Readonly::Scalar my $CLASS_FIELD => q[__CLASS__];
 
 has 'path'   =>  ( is          => 'ro',
                    isa         => 'ArrayRef[Str]',
@@ -93,7 +93,9 @@ sub load{
   my $transaction = sub {
     my $count = 0;
     foreach my $json_file (@{$self->json_file}) {
-      $count += $self->_json2db($json_file);
+      # Force scalar context since json file can contain multiple strings
+      my $json = slurp($json_file);
+      $count += $self->_json2db($json, $json_file);
     }
     return $count;
   };
@@ -112,55 +114,172 @@ sub load{
 }
 
 sub _json2db{
-  my ($self, $json_file) = @_;
+  my ($self, $json, $json_file) = @_;
+
+  if (!$json) {
+    croak 'JSON string representation of the object is missing';
+  }
 
   my $count = 0;
   try {
-    my $values = decode_json(slurp $json_file);
-    my $class_name = delete $values->{'__CLASS__'};
+    my $values = decode_json($json);
+    my $class_name = delete $values->{$CLASS_FIELD};
     if ($class_name) {
       ($class_name, my $dbix_class_name) =
         npg_qc::autoqc::role::result->class_names($class_name);
       if ($dbix_class_name && $self->_pass_filter($values, $class_name)) {
-        my $rs = $self->schema->resultset($dbix_class_name);
-        $rs->result_class->deflate_unique_key_components($values);
-        if ($self->update) {
-          $rs->find_or_new($values)->set_inflated_columns($values)->update_or_insert();
-          $count = 1;
-        } else {
-          if (!$rs->find($values)) {
-            $rs->new($values)->set_inflated_columns($values)->insert();
-            $count = 1;
-          }
+        my $module = 'npg_qc::autoqc::results::' . $class_name;
+        load_class($module);
+        my $obj = $module->thaw($json);
+
+        if ($class_name eq 'bam_flagstats') {
+          $values = decode_json($obj->freeze());
         }
+        my $composition_key = 'id_seq_composition';
+        if ( $obj->can('composition') && $obj->can('composition_digest') &&
+             $self->schema->source($dbix_class_name)->has_column($composition_key) ) {
+          $values->{$composition_key} = $self->_ensure_composition_exists($obj);
+        }
+        # Load the main object
+        $count = $self->_values2db($dbix_class_name, $values);
       }
     }
   } catch {
-    $self->_log("Attempted to load $json_file");
+    my $j =  $json_file || $json;
+    $self->_log("Attempted to load $j");
     croak $_;
   };
   my $m = $count ? 'Loaded' : 'Skipped';
-  $self->_log(join q[ ], $m, $json_file);
+  $self->_log(join q[ ], $m, $json_file || q[json string]);
+
   return $count;
+}
+
+sub _ensure_composition_exists {
+  my ($self, $obj) = @_;
+
+  my $num_components = $obj->composition->num_components;
+  my $composition_row = $self->schema->resultset('SeqComposition')
+    ->find_or_new({ 'digest' => $obj->composition_digest,
+                    'size'   => $num_components, });
+  my $composition_exists = 1;
+  if (!$composition_row->in_storage()) {
+    $composition_row->insert();
+    $composition_exists = 0;
+  }
+  my $pk = $composition_row->id_seq_composition;
+
+  if (!$composition_exists) {
+
+    my $component_rs   = $self->schema->resultset('SeqComponent');
+    my $comcom_rs      = $self->schema->resultset('SeqComponentComposition');
+
+    foreach  my $c ($obj->composition->components_list()) {
+      my $values = decode_json($c->freeze());
+      $values->{'digest'} = $c->digest();
+      my $row = $component_rs->find_or_create($values);
+      # Whether the component existed or not, we have to create a new
+      # composition membership record for it.
+      $values = {
+        'id_seq_composition' => $pk,
+        'id_seq_component'   => $row->id_seq_component,
+        'size'               => $num_components,
+      };
+      $comcom_rs->create($values);
+    }
+  }
+
+  return $pk;
+}
+
+sub _values2db {
+  my ($self, $dbix_class_name, $values) = @_;
+
+  my $iscurrent_column_name      = 'iscurrent';
+  my $composition_fk_column_name = 'id_seq_composition';
+  my $count = 0;
+  my $rs = $self->schema->resultset($dbix_class_name);
+  my $result_class = $rs->result_class;
+  $self->_exclude_nondb_attrs($values, $result_class->columns());
+
+  my $found;
+  if ($result_class->has_column($iscurrent_column_name)) {
+    my $fk_value = $values->{$composition_fk_column_name};
+    if ($fk_value) {
+      $rs->search({$composition_fk_column_name => $fk_value})
+         ->update({$iscurrent_column_name => 0});
+    }
+  } else {
+    $rs->deflate_unique_key_components($values);
+    $found = $rs->find($values);
+  }
+
+  if ($found) {
+    if ($self->update) {
+      $found->set_inflated_columns($values)->update();
+      $count++;
+    }
+  } else {
+    $rs->new_result($values)->set_inflated_columns($values)->insert();
+    $count++;
+  }
+
+  return $count;
+}
+
+sub _exclude_nondb_attrs {
+  my ($self, $values, @columns) = @_;
+
+  foreach my $key ( keys %{$values} ) {
+    if (none {$key eq $_} @columns) {
+      delete $values->{$key};
+      if ($key ne $CLASS_FIELD && $key ne 'composition') {
+        $self->_log("Not loading field '$key'");
+      }
+    }
+  }
+  return;
 }
 
 sub _pass_filter {
   my ($self, $values, $class_name) = @_;
+
   if (!$values || !(ref $values) || ref $values ne 'HASH') {
     croak 'Need hashed values to do filtering';
   }
   if (!$class_name) {
     croak 'Need class name to do filtering';
   }
+
   if ( scalar @{$self->check} && none {$_ eq $class_name} @{$self->check}) {
     return 0;
   }
-  if ( scalar @{$self->id_run} && none {$_ == $values->{'id_run'}} @{$self->id_run}) {
-    return 0;
+
+  if (@{$self->id_run} || @{$self->lane}) {
+    my $id_run   = $values->{'id_run'};
+    my $position = $values->{'position'};
+    if ( !$id_run  && $values->{'composition'} ) {
+      my $composition = $values->{'composition'};
+      if (ref $composition eq 'npg_tracking::glossary::composition' &&
+          $composition->num_components == 1) {
+        my $component = $composition->get_component(0);
+        $id_run   = $component->id_run;
+        $position = $component->position;
+      }
+    }
+
+    if ( @{$self->id_run} && $id_run ) {
+      if ( none {$_ == $id_run} @{$self->id_run} ) {
+        return 0;
+      }
+    }
+    if ( @{$self->lane} && $position ) {
+      if ( none {$_ == $position} @{$self->lane} ) {
+        return 0;
+      }
+    }
   }
-  if ( scalar @{$self->lane} && none {$_ == $values->{'position'}} @{$self->lane}) {
-    return 0;
-  }
+
   return 1;
 }
 
@@ -172,7 +291,6 @@ sub _log {
   return;
 }
 
-no Moose;
 __PACKAGE__->meta->make_immutable;
 
 1;
@@ -188,20 +306,43 @@ npg_qc::autoqc::db_loader
 
 =head1 SUBROUTINES/METHODS
 
-=head2 path - a reference to an array with directory names from where json files have to be loaded;
-              redandant if json_files is defined by the caller
+=head2 path
 
-=head2 id_run - an array of run ids to load, optional attribute
+  Array with directory names from where json files have to be loaded;
+  redandant if json_files is defined by the caller.
 
-=head2 json_files - a reference to a list of json files, optional attribute
+=head2 json_files
 
-=head2 lane - an array of lane numbers to load, optional attribute
+  Array of json files, optional attribute.
 
-=head2 check - an array of autoqc check names to load, optional attribute
+=head2 id_run
 
-=head2 load - performs loading of json files to a database
+  An array of run ids to load, optional attribute, acts as a filter.
 
-=head2 verbose - boolean switching logging on/off, on by default
+=head2 lane
+
+  An array of lane numbers to load, optional attribute, acts as a filter.
+
+=head2 check
+
+  An array of autoqc check names to load, optional attribute.
+
+=head2 load
+
+  Method that performs loading of json files to a database.
+
+=head2 verbose
+
+  A boolean attribute, switches logging on/off, true by default.
+
+=head2 update
+
+  A boolean attribute, true by default, switches on/off updates of existing
+  results. If false, only new results are inserted.
+
+=head2 schema
+
+  DBIx connection to the npg_qc database.
 
 =head1 DIAGNOSTICS
 
@@ -212,6 +353,10 @@ npg_qc::autoqc::db_loader
 =over
 
 =item Moose
+
+=item namespace::autoclean
+
+=item Class::Load
 
 =item MooseX::Getopt
 
@@ -224,6 +369,8 @@ npg_qc::autoqc::db_loader
 =item Perl6::Slurp
 
 =item List::MoreUtils
+
+=item Readonly
 
 =item npg_qc::Schema
 
@@ -241,7 +388,7 @@ Marina Gourtovaia E<lt>mg8@sanger.ac.ukE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2014 GRL, by Marina Gourtovaia
+Copyright (C) 2016 GRL
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

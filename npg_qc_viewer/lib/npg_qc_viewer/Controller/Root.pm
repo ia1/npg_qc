@@ -1,8 +1,8 @@
 package npg_qc_viewer::Controller::Root;
 
 use Moose;
+use namespace::autoclean;
 use Readonly;
-use English qw(-no_match_vars);
 
 BEGIN { extends 'Catalyst::Controller' }
 
@@ -26,8 +26,6 @@ Catalyst Controller.
 __PACKAGE__->config->{namespace} = q[];
 
 Readonly::Scalar  our $NOT_FOUND_ERROR_CODE => 404;
-Readonly::Scalar  our $UNAUTHORISED_CODE    => 401;
-Readonly::Scalar  our $ADMIN_GROUP_NAME     => q[admin];
 
 =head2 index
 
@@ -35,9 +33,9 @@ Index page action; redirection to the help page
 
 =cut
 sub index :Path :Args(0) {
-    my ( $self, $c ) = @_;
-    $c->response->redirect($c->uri_for(q[checks]) );
-    return;
+  my ( $self, $c ) = @_;
+  $c->response->redirect($c->uri_for(q[checks]) );
+  return;
 }
 
 =head2 default
@@ -46,13 +44,11 @@ Default action - page not found error page
 
 =cut
 sub default :Path {
-    my ( $self, $c ) = @_;
-    $c->stash->{error_message} = q[Page not found];
-    $c->detach(q[error_page]);
-    return;
+  my ( $self, $c ) = @_;
+  $c->stash->{error_message} = q[Page not found];
+  $c->detach(q[error_page]);
+  return;
 }
-
-
 
 =head2 error_page
 
@@ -60,42 +56,23 @@ Error page for problems with user input
 
 =cut
 sub error_page :Path :Args(1) {
-    my ( $self, $c ) = @_;
+  my ( $self, $c ) = @_;
 
-    if (!$c->stash->{error_message}) {
-        if ($c->error) {
-            $c->stash->{error_message} = join q[:], @{$c->error};
-            $c->clear_errors;
+  if (!$c->stash->{error_message}) {
+    if ($c->error) {
+      $c->stash->{error_message} = join q[:], @{$c->error};
+      $c->clear_errors;
 	}
-    }
-    if ( !$c->response->status || $c->response->status =~ /^2/smx ) {
-        $c->response->status($NOT_FOUND_ERROR_CODE);
-    }
-    if ( $c->response->status == $NOT_FOUND_ERROR_CODE && !$c->stash->{error_message} ) {
-        $c->stash->{error_message} = q[Page not found];
-    }
-    $c->stash->{template} = q[error_page.tt2];
-    $c->stash->{title}    = q[NPG SeqQC error page];
-    return;
-}
-
-=head2 auto
-
-Runs at the start of each request (least specific auto)
-
-=cut
-sub auto :Private {
-    my ( $self, $c ) = @_;
-    #TODO consider using CatalystX::SimpleLogin
-
-    #Whether the URL is valid or not, we are here.
-    #Pre-compile a reg exp?
-
-    if ( $c->req->path =~ /^autocrud\/site\/admin /smx) {
-       $self->authorise($c, $ADMIN_GROUP_NAME);
-       $c->stash->{'template'} = q[about.tt2];
-    }
-    return 1; # essential to return 1, see Catalyst despatch schema
+  }
+  if ( !$c->response->status || $c->response->status =~ /^2/smx ) {
+    $c->response->status($NOT_FOUND_ERROR_CODE);
+  }
+  if ( $c->response->status == $NOT_FOUND_ERROR_CODE && !$c->stash->{error_message} ) {
+    $c->stash->{error_message} = q[Page not found];
+  }
+  $c->stash->{template} = q[error_page.tt2];
+  $c->stash->{title}  = q[NPG SeqQC error page];
+  return;
 }
 
 =head2 end
@@ -105,57 +82,6 @@ Attempt to render a view, if needed.
 =cut 
 
 sub end : ActionClass('RenderView') {}
-
-
-=head2 authorise
-
-User authorisation with a detach to an error page
-
-=cut
-
-sub authorise {
-    my ($self, $c, @roles) = @_;
-    my $user  = $c->req->params->{user};
-    my $realm = $c->req->params->{realm};
-    my $h = {};
-
-    if (defined $user or defined $realm) {
-        my $password     = $c->req->params->{password};
-        $password = $password ? $password : q[];
-        $user     = $user ? $user : q[];
-        $c->logout;
-        if (defined $user) {
-            $h = { username => $user, password => $password };
-        }
-    }
-    my $auth_ok;
-    eval {
-        $auth_ok = $c->authenticate( $h, $realm);
-        1;
-    } or do {
-        # non-existing realm gives an error
-        $self->detach2error($c, $UNAUTHORISED_CODE, qq[Login failed: $EVAL_ERROR] . q[.]);
-    };
-
-    if ( !$auth_ok ) {
-        $self->detach2error($c, $UNAUTHORISED_CODE, q[Login failed.]);
-    }
-    $c->log->debug('succeeded to authenticate');
-
-    if (!$c->user_exists()) {
-        $self->detach2error($c, $UNAUTHORISED_CODE, q[User is not logged in.]);
-    }
-
-    if (@roles) {
-        my $all_roles = join q[,], @roles;
-        $c->log->debug(qq[asked to authorised against $all_roles]);
-        my $logged_user = $c->user->id;
-        if ( !$c->check_user_roles(@roles) ) {
-            $self->detach2error($c, $UNAUTHORISED_CODE, qq[User $logged_user is not a member of $all_roles.]);
-        }
-    }
-    return;
-}
 
 =head2 detach2error
 
@@ -172,6 +98,7 @@ sub detach2error {
     return;
 }
 
+__PACKAGE__->meta->make_immutable;
 
 1;
 __END__
@@ -186,9 +113,9 @@ __END__
 
 =item Readonly
 
-=item English
-
 =item Moose
+
+=item namespace::autoclean
 
 =item Catalyst::Controller
 
@@ -204,7 +131,7 @@ Andy Brown E<lt>ajb@sanger.ac.ukE<gt> and Marina Gourtovaia E<lt>mg8@sanger.ac.u
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2014 Genome Research Ltd.
+Copyright (C) 2015 Genome Research Ltd.
 
 This file is part of NPG software.
 

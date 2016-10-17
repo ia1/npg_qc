@@ -1,14 +1,7 @@
-#########
-# Author:        Marina Gourtovaia
-# Created:       26 October 2011
-#
-
 package npg_qc::autoqc::results::tag_metrics;
 
-use strict;
-use warnings;
 use Moose;
-use Readonly;
+use namespace::autoclean;
 
 extends qw(npg_qc::autoqc::results::result);
 with qw(npg_qc::autoqc::role::tag_metrics);
@@ -40,7 +33,7 @@ has [ qw/ metrics_file
                                         is =>  'rw',
                                        );
 
-no Moose;
+__PACKAGE__->meta->make_immutable;
 
 1;
 
@@ -58,9 +51,9 @@ __END__
 =head1 DESCRIPTION
 
  An autoqc result object that wrapps results of barcode decoding
- by picard http://picard.sourceforge.net/command-line-overview.shtml#ExtractIlluminaBarcodes
+ by picard https://broadinstitute.github.io/picard/command-line-overview.html#ExtractIlluminaBarcodes
  according to the metric described in
- http://picard.sourceforge.net/picard-metric-definitions.shtml#ExtractIlluminaBarcodes.BarcodeMetric
+ https://broadinstitute.github.io/picard/picard-metric-definitions.html#ExtractIlluminaBarcodes.BarcodeMetric
 
 =head1 SUBROUTINES/METHODS
 
@@ -74,11 +67,11 @@ __END__
 
 =item Moose
 
-=item Readonly
+=item namespace::autoclean
 
 =item npg_qc::autoqc::results::result
 
-=item npg_qc::autoqc::role::barcode_metrics
+=item npg_qc::autoqc::role::tag_metrics
 
 =back
 
@@ -88,11 +81,11 @@ __END__
 
 =head1 AUTHOR
 
-Author: Marina Gourtovaia E<lt>mg8@sanger.ac.ukE<gt><gt>
+Marina Gourtovaia E<lt>mg8@sanger.ac.ukE<gt><gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2011 GRL, by Marina Gourtovaia
+Copyright (C) 2016 GRL
 
 This file is part of NPG.
 

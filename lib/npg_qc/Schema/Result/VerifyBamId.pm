@@ -20,6 +20,18 @@ use MooseX::NonMoose;
 use MooseX::MarkAsMethods autoclean => 1;
 extends 'DBIx::Class::Core';
 
+=head1 ADDITIONAL CLASSES USED
+
+=over 4
+
+=item * L<namespace::autoclean>
+
+=back
+
+=cut
+
+use namespace::autoclean;
+
 =head1 COMPONENTS LOADED
 
 =over 4
@@ -93,7 +105,6 @@ __PACKAGE__->table('verify_bam_id');
 
 =head2 freeLK0
 
-  accessor: 'free_lk0'
   data_type: 'decimal'
   default_value: 0.00
   is_nullable: 0
@@ -101,7 +112,6 @@ __PACKAGE__->table('verify_bam_id');
 
 =head2 freeLK1
 
-  accessor: 'free_lk1'
   data_type: 'decimal'
   default_value: 0.00
   is_nullable: 0
@@ -164,7 +174,6 @@ __PACKAGE__->add_columns(
   },
   'freeLK0',
   {
-    accessor => 'free_lk0',
     data_type => 'decimal',
     default_value => '0.00',
     is_nullable => 0,
@@ -172,7 +181,6 @@ __PACKAGE__->add_columns(
   },
   'freeLK1',
   {
-    accessor => 'free_lk1',
     data_type => 'decimal',
     default_value => '0.00',
     is_nullable => 0,
@@ -224,6 +232,8 @@ __PACKAGE__->add_unique_constraint('unq_run_lane_verify', ['id_run', 'position',
 
 =item * L<npg_qc::Schema::Flators>
 
+=item * L<npg_qc::autoqc::role::result>
+
 =item * L<npg_qc::autoqc::role::verify_bam_id>
 
 =back
@@ -231,11 +241,11 @@ __PACKAGE__->add_unique_constraint('unq_run_lane_verify', ['id_run', 'position',
 =cut
 
 
-with 'npg_qc::Schema::Flators', 'npg_qc::autoqc::role::verify_bam_id';
+with 'npg_qc::Schema::Flators', 'npg_qc::autoqc::role::result', 'npg_qc::autoqc::role::verify_bam_id';
 
 
-# Created by DBIx::Class::Schema::Loader v0.07036 @ 2014-04-30 11:56:44
-# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:oz2pF6o2flRVq7PufYNmow
+# Created by DBIx::Class::Schema::Loader v0.07045 @ 2016-06-30 15:33:28
+# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:Chx2bH7+wsgmWU9oNwV+DQ
 
 __PACKAGE__->set_flators4non_scalar(qw( info ));
 __PACKAGE__->set_inflator4scalar('tag_index');
@@ -243,6 +253,7 @@ __PACKAGE__->set_inflator4scalar('tag_index');
 
 our $VERSION = '0';
 
+# You can replace this text with custom code or comments, and it will be preserved on regeneration
 __PACKAGE__->meta->make_immutable;
 
 1;
@@ -270,6 +281,8 @@ Result class definition in DBIx binding for npg-qc database.
 
 =item Moose
 
+=item namespace::autoclean
+
 =item MooseX::NonMoose
 
 =item MooseX::MarkAsMethods
@@ -292,7 +305,7 @@ Marina Gourtovaia E<lt>mg8@sanger.ac.ukE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2014 GRL, by Marina Gourtovaia
+Copyright (C) 2016 GRL
 
 This file is part of NPG.
 

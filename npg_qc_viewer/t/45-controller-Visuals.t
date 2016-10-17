@@ -1,5 +1,6 @@
 use strict;
 use warnings;
+use lib 't/lib';
 use Test::More tests => 10;
 use Test::Exception;
 use Cwd;
@@ -34,20 +35,18 @@ my $fname = 'new.fastqcheck';
 {
   my $path = File::Spec->catfile(cwd, 't', 'data', '4360_1_1.fastqcheck');
   my $url  = q[/visuals/fastqcheck?path=] . $path . q[&db_lookup=1];
-  my $responce;
-  lives_ok { $responce = request($url) } qq[$url request] ;
-  ok( $responce->is_error, q[responce is an error] );
-  is( $responce->code, 500, q[error code is 500] );
+  my $response;
+  lives_ok { $response = request($url) } qq[$url request] ;
+  ok( $response->is_error, q[response is an error] );
+  is( $response->code, 500, q[error code is 500] );
 }
-
-1;
-
-
 
 {
   my $url  = q[/visuals/fastqcheck?path=] . $fname . q[&db_lookup=1];
-  my $responce;
-  lives_ok { $responce = request($url) } qq[$url request] ;
-  ok( $responce->is_success, qq[$url request succeeds] );
-  is( $responce->content_type, q[image/png], 'image/png content type');
+  my $response;
+  lives_ok { $response = request($url) } qq[$url request] ;
+  ok( $response->is_success, qq[$url request succeeds] );
+  is( $response->content_type, q[image/png], 'image/png content type');
 }
+
+1;

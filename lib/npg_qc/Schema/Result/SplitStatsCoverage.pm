@@ -20,19 +20,29 @@ use MooseX::NonMoose;
 use MooseX::MarkAsMethods autoclean => 1;
 extends 'DBIx::Class::Core';
 
+=head1 ADDITIONAL CLASSES USED
+
+=over 4
+
+=item * L<namespace::autoclean>
+
+=back
+
+=cut
+
+use namespace::autoclean;
+
 =head1 COMPONENTS LOADED
 
 =over 4
 
 =item * L<DBIx::Class::InflateColumn::DateTime>
 
-=item * L<DBIx::Class::InflateColumn::Serializer>
-
 =back
 
 =cut
 
-__PACKAGE__->load_components('InflateColumn::DateTime', 'InflateColumn::Serializer');
+__PACKAGE__->load_components('InflateColumn::DateTime');
 
 =head1 TABLE: C<split_stats_coverage>
 
@@ -140,7 +150,7 @@ __PACKAGE__->add_unique_constraint(
 
 =head1 RELATIONS
 
-=head2 id_split_stat
+=head2 split_stat
 
 Type: belongs_to
 
@@ -149,15 +159,15 @@ Related object: L<npg_qc::Schema::Result::SplitStats>
 =cut
 
 __PACKAGE__->belongs_to(
-  'id_split_stat',
+  'split_stat',
   'npg_qc::Schema::Result::SplitStats',
   { id_split_stats => 'id_split_stats' },
   { is_deferrable => 1, on_delete => 'RESTRICT', on_update => 'RESTRICT' },
 );
 
 
-# Created by DBIx::Class::Schema::Loader v0.07036 @ 2014-02-23 17:42:06
-# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:b4LalZUFLHnom9jvJsA9Vw
+# Created by DBIx::Class::Schema::Loader v0.07036 @ 2015-06-30 16:51:56
+# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:l5gOAFEJCe7JknGSAl3H3g
 
 our $VERSION = '0';
 
@@ -188,6 +198,8 @@ Result class definition in DBIx binding for npg-qc database.
 
 =item Moose
 
+=item namespace::autoclean
+
 =item MooseX::NonMoose
 
 =item MooseX::MarkAsMethods
@@ -210,7 +222,7 @@ Marina Gourtovaia E<lt>mg8@sanger.ac.ukE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2014 GRL, by Marina Gourtovaia
+Copyright (C) 2016 GRL
 
 This file is part of NPG.
 

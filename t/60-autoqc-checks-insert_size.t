@@ -1,33 +1,57 @@
 use strict;
 use warnings;
-use Test::More tests => 52;
+use Test::More tests => 66;
 use Test::Exception;
 use Test::Deep;
+use Perl6::Slurp;
+use JSON;
 use Cwd qw(cwd);
 use File::Spec::Functions qw(catfile);
 use File::Temp qw/ tempdir /;
 
-local $ENV{'NPG_WEBSERVICE_CACHE_DIR'} = q[t/data/autoqc/insert_size];
-
 use npg_qc::autoqc::results::insert_size;
 use t::autoqc_util;
 
+my $current_dir = cwd();
+
 use_ok('npg_qc::autoqc::checks::insert_size');
 
-my $current_dir = cwd();
+local $ENV{'http_proxy'} = 'wibble.com';
+local $ENV{'no_proxy'} = q[];
+local $ENV{'NPG_WEBSERVICE_CACHE_DIR'} = q[t/data/autoqc/insert_size];
 local $ENV{'PATH'} = join q[:], qq[$current_dir/blib/script] , $ENV{'PATH'};
 my $repos = catfile($current_dir, q[t/data/autoqc]);
 my $ref = catfile($repos, q[references]);
 my $format = q[sam];
 my $test_bam = 0;
 
-{
-  my $qc = npg_qc::autoqc::checks::insert_size->new(position => 2, path => 't/data/autoqc/090721_IL29_2549/data', id_run => 2549, repository => $repos, );
-  isa_ok($qc, 'npg_qc::autoqc::checks::insert_size', 'is test');
+use_ok('npg_qc::autoqc::checks::insert_size');
+
+sub _additional_modules {
+  my $use_fastx = shift;
+  my @expected = ();
+  require npg_qc::autoqc::parse::alignment;
+  push @expected, join(q[ ],
+    'npg_qc::autoqc::parse::alignment', $npg_qc::autoqc::parse::alignment::VERSION);
+  require npg_common::extractor::fastq;
+  push @expected, join(q[ ],
+    q[npg_common::extractor::fastq], $npg_common::extractor::fastq::VERSION);
+  require npg_common::Alignment;
+  push @expected, join(q[ ],
+    q[npg_common::Alignment], $npg_common::Alignment::VERSION);
+  if ($use_fastx) {
+    push @expected, q[FASTX Toolkit fastx_reverse_complement 0.0.12];
+  }
+  push @expected, join(q[ ], join(q[/], $current_dir, q[blib/script/norm_fit]),
+    $npg_qc::autoqc::results::insert_size::VERSION);
+  return @expected;
 }
 
 {
-  my $qc = npg_qc::autoqc::checks::insert_size->new(position => 2, path => 't/data/autoqc/090721_IL29_2549/data', id_run => 2549,  repository => $repos, );
+  my $qc = npg_qc::autoqc::checks::insert_size->new(
+    id_run => 2549, position => 2, path => 't/data/autoqc/090721_IL29_2549/data', repository => $repos);
+  isa_ok($qc, 'npg_qc::autoqc::checks::insert_size', 'is test');
+
   throws_ok {$qc->execute()} qr/Reverse run fastq file is missing/, 'error on reverse fastq file missing';
 }
 
@@ -59,13 +83,14 @@ my $test_bam = 0;
                                            id_run => 1937, 
                                            repository => $repos, 
                                            expected_size => [350,350],
-                                                   ); 
+                                                   ) }
+    qr/Attribute \(sample_size\) does not pass the type constraint/, 'wrong requested sample size error';
 
-            } qr/Attribute \(sample_size\) does not pass the type constraint/, 'wrong requested sample size error';
-
-  my $qc = npg_qc::autoqc::checks::insert_size->new(position => 2, path => 't/data/autoqc', id_run => 2549, repository => $repos,);
+  my $qc = npg_qc::autoqc::checks::insert_size->new(
+    position => 2, path => 't/data/autoqc', id_run => 2549, repository => $repos,);
   is($qc->sample_size, 10000, 'default sample size');
-  $qc = npg_qc::autoqc::checks::insert_size->new(sample_size => 2, position => 2, path => 't/data/autoqc', id_run => 2549, repository => $repos, );
+  $qc = npg_qc::autoqc::checks::insert_size->new(
+    sample_size => 2, position => 2, path => 't/data/autoqc', id_run => 2549, repository => $repos, );
   is($qc->sample_size, 2, 'sample size set correctly');
 }
 
@@ -83,7 +108,6 @@ my $test_bam = 0;
                                            use_reverse_complemented => 0,
                                            expected_size => [350,350],
                                                    );
-
   throws_ok {$qc->execute()} qr/Reads are out of order in/,
     'execute: error on reads out of order';
 }
@@ -153,7 +177,6 @@ my $test_bam = 0;
   is(join(q[ ], @{$qc->expected_size}), q[400 500], 'expected size the old way');
 }
 
-
 {
   my $qc = npg_qc::autoqc::checks::insert_size->new(
                                               position  => 1, 
@@ -163,7 +186,6 @@ my $test_bam = 0;
                                                    );
   is(join(q[ ], @{$qc->expected_size}), q[3000 4000], 'expected size range when the values are given in kb');
 }
-
 
 {
   my $qc = npg_qc::autoqc::checks::insert_size->new(
@@ -176,7 +198,6 @@ my $test_bam = 0;
   is($qc->expected_size, undef, 'expected size range for a plex when the size is not defined');
 }
 
-
 {
   my $qc = npg_qc::autoqc::checks::insert_size->new(
                                               position  => 1, 
@@ -186,7 +207,6 @@ my $test_bam = 0;
                                                    );
   is($qc->expected_size, undef, 'expected size range for lane with one plex when the size is not defined in the plex');
 }
-
 
 {
   my $qc = npg_qc::autoqc::checks::insert_size->new(
@@ -201,7 +221,6 @@ my $test_bam = 0;
               'comment for an error when tag index does not exist');  
 }
 
-
 {
   my $qc = npg_qc::autoqc::checks::insert_size->new(
                                               position  => 3, 
@@ -211,7 +230,6 @@ my $test_bam = 0;
                                                    );
   is (join(q[ ], @{$qc->expected_size}), q[300 390], 'expected size for a pool lane');
 }
-
 
 {
   my $qc = npg_qc::autoqc::checks::insert_size->new(
@@ -224,7 +242,6 @@ my $test_bam = 0;
   is(join(q[ ], @{$qc->expected_size}), q[300 390], 'expected size for a pool lane, tag index 0');
 }
 
-
 {
   my $qc = npg_qc::autoqc::checks::insert_size->new(
                                               position  => 3, 
@@ -235,7 +252,6 @@ my $test_bam = 0;
                                                    );
   is(join(q[ ], @{$qc->expected_size}), q[225 375], 'expected size for a pool lane, tag index 2');
 }
-
 
 {
   my $qc = npg_qc::autoqc::checks::insert_size->new(
@@ -248,7 +264,6 @@ my $test_bam = 0;
   is($qc->expected_size, undef, 'expected size for a pool lane, tag index 3');
 }
 
-
 {
   my $qc = npg_qc::autoqc::checks::insert_size->new(
                                               position  => 3, 
@@ -259,7 +274,6 @@ my $test_bam = 0;
                                                    );
   is(join(q[ ], @{$qc->expected_size}), q[300 390], 'expected size for a pool lane, tag index 1');
 }
-
 
 {
   my $dir = tempdir( CLEANUP => 1 );
@@ -277,7 +291,6 @@ my $test_bam = 0;
                                               id_run    => 1937,
                                               repository => $repos,
                                               reference => $ref,
-                                              expected_size => [350,350],
                                               use_reverse_complemented => 0,
                                               format => $format,
                                                    );
@@ -292,7 +305,6 @@ my $test_bam = 0;
                                               id_run    => 1937,
                                               repository => $repos,
                                               reference => $ref,
-                                              expected_size => [350,350],
                                               input_files   => ['t/data/autoqc/1937_1_1.fastq', 't/data/autoqc/1937_1_2.fastq'],
                                                     );
 
@@ -300,7 +312,7 @@ my $test_bam = 0;
   $eqc->result->bin_width(1);
   $eqc->result->min_isize(110);
   $eqc->result->filenames(['1937_1_1.fastq', '1937_1_2.fastq']);
-  $eqc->result->expected_size([350,350]);
+  $eqc->result->expected_size([400,500]);
   $eqc->result->mean(148);
   $eqc->result->std(16);
   $eqc->result->sample_size(10000);
@@ -313,14 +325,88 @@ my $test_bam = 0;
   $eqc->result->num_well_aligned_reads_opp_dir(undef);
   $eqc->result->set_info('Aligner', catfile ($dir, 'bwa'));
   $eqc->result->set_info('Aligner_version', '0.5.5 (r1273)');
-  $eqc->result->set_info('Additional_Modules', join(q[;], t::autoqc_util::insert_size_additional_modules));
+  $eqc->result->set_info('Additional_Modules', join(q[;], _additional_modules));
   $eqc->result->add_comment('Not enough properly paired reads for normal fitting');
   #### Construct expected  object: END ####
 
   cmp_deeply ($qc->result, $eqc->result, 'result object after the execution');
-  
+
+  $qc = npg_qc::autoqc::checks::insert_size->new(
+                                              path      => 't/data/autoqc', 
+                                              rpt_list   => '1937:1',
+                                              repository => $repos,
+                                              reference => $ref,
+                                              use_reverse_complemented => 0,
+                                              format => $format,
+                                                   );
+
+   ok($qc->execute(), 'execute returns true');
+   cmp_deeply ($qc->result, $eqc->result, 'result object after the execution');
 }
 
+{
+  my $qc = npg_qc::autoqc::checks::insert_size->new(
+                                              path      => 't/data/autoqc', 
+                                              rpt_list   => '1937:1;1938:2',
+                                              repository => $repos,
+                                              reference => $ref,
+                                              use_reverse_complemented => 0,
+                                              format => $format,
+                                                   );
+  throws_ok { $qc->is_paired_read() } qr/Data from multiple runs/,
+    'error inferring whether reads are paired';
+  throws_ok { $qc->can_run() } qr/Data from multiple runs/,
+    'error inferring whether can run';
+
+  $qc = npg_qc::autoqc::checks::insert_size->new(
+                                              path      => 't/data/autoqc', 
+                                              rpt_list   => '1937:1;1938:2',
+                                              repository => $repos,
+                                              reference => $ref,
+                                              use_reverse_complemented => 0,
+                                              format => $format,
+                                              is_paired_read => 0,
+                                                 );
+  is($qc->can_run(), 0, 'cannot run');
+
+  $qc = npg_qc::autoqc::checks::insert_size->new(
+                                              path      => 't/data/autoqc', 
+                                              rpt_list   => '1937:1;1938:2',
+                                              repository => $repos,
+                                              reference => $ref,
+                                              use_reverse_complemented => 0,
+                                              format => $format,
+                                              is_paired_read => 1,
+                                                );
+  is($qc->can_run(), 1, 'can run');
+}
+
+{
+  my $dir = tempdir( CLEANUP => 1 );
+  my $s1 = catfile($current_dir, q[t/data/autoqc/insert_size/alignment_isize_normfit.sam]);
+  t::autoqc_util::write_bwa_script(catfile($dir, 'bwa'), $s1);
+  local $ENV{PATH} = join ':', $dir,  $ENV{PATH};
+
+  my $check = npg_qc::autoqc::checks::insert_size->new(
+                                              position  => 1,
+                                              path      => 't/data/autoqc',
+                                              id_run    => 1937,
+                                              repository => $repos,
+                                              reference => $ref,
+                                              expected_size => [350,350],
+                                              use_reverse_complemented => 0,
+                                              format => $format,
+                                                   );
+
+  ok($check->execute(), 'execute returns true');
+  my $result = decode_json(slurp 't/data/autoqc/insert_size/15155_8.insert_size.json');
+  is ($check->result->num_well_aligned_reads, 8417, 'num_well_aligned_reads correct');
+  is_deeply ($check->result->bins, $result->{'bins'}, 'bins array correct');
+  is_deeply ($check->result->norm_fit_modes, $result->{'norm_fit_modes'}, 'norm_fit_modes correct');
+  is ($check->result->norm_fit_confidence, 0.76, 'norm_fit_confidence correct');
+  is ($check->result->norm_fit_nmode, 2, 'norm_fit_nmode correct');
+  is ($check->result->norm_fit_pass, 0, 'norm_fit_pass correct');
+}
 
 {
   my $dir = tempdir( CLEANUP => 1 );
@@ -422,7 +508,7 @@ my $test_bam = 0;
   $eqc->result->num_well_aligned_reads_opp_dir(undef);
   $eqc->result->set_info('Aligner', catfile ($dir, 'bwa'));
   $eqc->result->set_info('Aligner_version', '0.5.5 (r1273)');
-  $eqc->result->set_info('Additional_Modules', join(q[;], t::autoqc_util::insert_size_additional_modules));
+  $eqc->result->set_info('Additional_Modules', join(q[;], _additional_modules));
   #### Construct expected  object: END ####
 
   cmp_deeply ($qc->result, $eqc->result, 'result object after the execution for an empty result set');
@@ -478,7 +564,7 @@ my $test_bam = 0;
   $eqc->result->reference($ref);
   $eqc->result->set_info('Aligner', catfile ($dir, 'bwa'));
   $eqc->result->set_info('Aligner_version', '0.5.5 (r1273)');
-  $eqc->result->set_info('Additional_Modules', join(q[;], t::autoqc_util::insert_size_additional_modules));
+  $eqc->result->set_info('Additional_Modules', join(q[;], _additional_modules));
   $eqc->result->add_comment('Not enough properly paired reads for normal fitting');
   #### Construct expected  object: END ####
   cmp_deeply ($qc->result, $eqc->result, 'result object after the execution for one result');
@@ -552,8 +638,7 @@ my $test_bam = 0;
   is ($qc->_fastx_version, '0.0.12', 'fastx version');
   $qc->_set_additional_modules_info;
   is ( $qc->result->get_info('Additional_Modules'),
-       join(q[;], t::autoqc_util::insert_size_additional_modules(1)),
-       'additional info with fastx');
+    join(q[;], _additional_modules(1)), 'additional info with fastx');
 }
 
 {

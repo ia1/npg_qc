@@ -1,14 +1,7 @@
-# Author:        david.jackson@sanger.ac.uk
-# Created:       2011-09-29
-#
-#
-
 package npg_qc::autoqc::checks::spatial_filter;
 
-use strict;
-use warnings;
 use Moose;
-use Carp;
+use namespace::autoclean;
 
 extends qw(npg_qc::autoqc::checks::check);
 
@@ -16,16 +9,11 @@ our $VERSION = '0';
 
 override 'execute' => sub {
 	my ($self) = @_;
-
-        $self->result->parse_output(); #read stderr from spatial_filter -a on stdin ....
-
+  $self->result->parse_output(); #read stderr from spatial_filter -a on stdin ....
 	return 1;
 };
 
-
-no Moose;
 __PACKAGE__->meta->make_immutable();
-
 
 1;
 
@@ -34,13 +22,15 @@ __END__
 
 =head1 NAME
 
-npg_qc::autoqc::checks::spatial_filter - parse err stream from spatial_filter -a to record number of read filtered
+npg_qc::autoqc::checks::spatial_filter
 
 =head1 SYNOPSIS
 
     use npg_qc::autoqc::checks::spatial_filter;
 
 =head1 DESCRIPTION
+
+    Parse err stream from spatial_filter -a to record number of read filtered
 
 
 =head1 SUBROUTINES/METHODS
@@ -63,13 +53,21 @@ npg_qc::autoqc::checks::spatial_filter - parse err stream from spatial_filter -a
 
 =head1 DEPENDENCIES
 
+=over
+
+=item Moose
+
+=item namespace::autoclean
+
+=back
+
 =head1 AUTHOR
 
-    Kevin Lewis, kl2
+    David K. Jackson
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2011 GRL, by David K. Jackson
+Copyright (C) 2016 GRL
 
 This file is part of NPG.
 

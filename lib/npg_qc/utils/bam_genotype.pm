@@ -12,6 +12,7 @@ use File::Basename;
 use File::Spec::Functions qw(catfile catdir);
 use JSON;
 use Moose;
+use namespace::autoclean;
 use Moose::Util::TypeConstraints;
 use Readonly;
 
@@ -20,8 +21,8 @@ use npg_common::roles::software_location;
 our $VERSION = '0';
 
 ##no critic
-Readonly::Scalar my $SAMTOOLS_NAME => 'samtools';
-Readonly::Scalar my $BCFTOOLS_NAME => 'bcftools';
+Readonly::Scalar my $SAMTOOLS_NAME => 'samtools1';
+Readonly::Scalar my $BCFTOOLS_NAME => 'bcftools1';
 
 subtype '_bamgt_ReadableFile'
       => as Str
@@ -109,6 +110,39 @@ sub _build_samtools {
 	return $self->samtools_name;
 }
 
+has 'samtools_extract_regions' => (
+        is => 'ro',
+        isa => 'NpgCommonResolvedPathExecutable',
+        lazy_build => 1,
+        coerce => 1,
+);
+sub _build_samtools_extract_regions {
+	my ($self) = @_;
+	return $self->samtools_name;
+}
+
+has 'samtools_mpileup' => (
+        is => 'ro',
+        isa => 'NpgCommonResolvedPathExecutable',
+        lazy_build => 1,
+        coerce => 1,
+);
+sub _build_samtools_mpileup {
+	my ($self) = @_;
+	return $self->samtools_name;
+}
+
+has 'samtools_merge' => (
+        is => 'ro',
+        isa => 'NpgCommonResolvedPathExecutable',
+        lazy_build => 1,
+        coerce => 1,
+);
+sub _build_samtools_merge {
+	my ($self) = @_;
+	return $self->samtools_name;
+}
+
 # you can override the executable name. May be useful for variants like "samtools_irods"
 has 'bcftools_name' => (
 	is => 'ro',
@@ -180,7 +214,7 @@ sub _build_json_genotype {
 
 	for my $chrpos (keys %$pos_snpname_map) { $calls{$pos_snpname_map->{$chrpos}}->{call} = 'NN'; }	# initialise all calls to 'NN'
 
-	open $f, "$call_gt_cmd|" or croak "Failed to open filter";
+	open $f, q{-|}, $call_gt_cmd or croak "Failed to open filter";
 	while(<$f>) {
 		next if(/^#/);
 
@@ -216,8 +250,7 @@ sub _build_json_genotype {
 			$calls{$snp_name}->{gt_pl} = $pl;
 		}
 	}
-#	close($f) or croak 'Error calling genotype from bam file';
-	close($f);
+	close($f) or croak 'Error calling genotype from bam file';
 
 	$json_genotype->{bam} = $self->bam_file_list->[0];
 	$json_genotype->{reference} = $self->reference;
@@ -301,22 +334,20 @@ sub _build__call_gt_cmd {
 	my $bam_file_list = $self->bam_file_list;
 
 	if(@{$bam_file_list} == 1) {
-		$cmd = sprintf q{bash -c 'set -o pipefail && %s view -b %s %s 2>/dev/null | %s mpileup -f %s -g - 2>/dev/null | %s view -l %s -g - 2>/dev/null'}, $self->samtools, $bam_file_list->[0], $self->_regions_string, $self->samtools, $self->reference, $self->bcftools, $self->pos_snpname_map_filename;
+		$cmd = sprintf q{bash -c 'set -o pipefail && %s view -b %s %s 2>/dev/null | %s mpileup -l %s -f %s -g - 2>/dev/null | %s call -c -O v - 2>/dev/null'}, $self->samtools_extract_regions, $bam_file_list->[0], $self->_regions_string, $self->samtools_mpileup, $self->pos_snpname_map_filename, $self->reference, $self->bcftools;
 	}
 	else {
-		$cmd = sprintf q{bash -c 'set -o pipefail && %s merge -- - }, $self->samtools;
+		$cmd = sprintf q{bash -c 'set -o pipefail && %s merge -- - }, $self->samtools_merge;
 		for my $bam_file (@{$bam_file_list}) {
-			$cmd .= sprintf q{<(%s view -b %s %s) }, $self->samtools, $bam_file, $self->_regions_string;
+			$cmd .= sprintf q{<(%s view -b %s %s) }, $self->samtools_extract_regions, $bam_file, $self->_regions_string;
 		}
-		$cmd .= sprintf q{ | %s mpileup -f %s -g - 2>/dev/null | %s view -l %s -g - 2>/dev/null'}, $self->samtools, $self->reference, $self->bcftools, $self->pos_snpname_map_filename;
+		$cmd .= sprintf q{ | %s mpileup -l %s -f %s -g - 2>/dev/null | %s call -c -O v - 2>/dev/null'}, $self->samtools_mpileup, $self->pos_snpname_map_filename, $self->reference, $self->bcftools;
 	}
 
 	return $cmd;
 }
 
-no Moose;
 __PACKAGE__->meta->make_immutable();
-
 
 1;
 

@@ -20,19 +20,29 @@ use MooseX::NonMoose;
 use MooseX::MarkAsMethods autoclean => 1;
 extends 'DBIx::Class::Core';
 
+=head1 ADDITIONAL CLASSES USED
+
+=over 4
+
+=item * L<namespace::autoclean>
+
+=back
+
+=cut
+
+use namespace::autoclean;
+
 =head1 COMPONENTS LOADED
 
 =over 4
 
 =item * L<DBIx::Class::InflateColumn::DateTime>
 
-=item * L<DBIx::Class::InflateColumn::Serializer>
-
 =back
 
 =cut
 
-__PACKAGE__->load_components('InflateColumn::DateTime', 'InflateColumn::Serializer');
+__PACKAGE__->load_components('InflateColumn::DateTime');
 
 =head1 TABLE: C<cluster_density>
 
@@ -157,8 +167,8 @@ __PACKAGE__->set_primary_key('id_cluster_density');
 __PACKAGE__->add_unique_constraint('unq_idx_cluster_density', ['id_run', 'position', 'is_pf']);
 
 
-# Created by DBIx::Class::Schema::Loader v0.07036 @ 2014-02-23 17:42:06
-# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:sWgH80l5cUoBcRy4OiaUaQ
+# Created by DBIx::Class::Schema::Loader v0.07036 @ 2015-06-30 16:51:56
+# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:IxKAPWLGrL/QUV8+2Dd33g
 
 our $VERSION = '0';
 
@@ -188,6 +198,8 @@ Result class definition in DBIx binding for npg-qc database.
 =item warnings
 
 =item Moose
+
+=item namespace::autoclean
 
 =item MooseX::NonMoose
 

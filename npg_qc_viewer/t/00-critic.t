@@ -16,13 +16,18 @@ if($EVAL_ERROR) {
   plan skip_all => 'Test::Perl::Critic not installed';
 
 } else {
+
+  local $ENV{'HOME'} = 't/data';
+
   Test::Perl::Critic->import(
 			   -severity => 1,
 			   -exclude  => [ 'tidy',
                              'ValuesAndExpressions::ProhibitImplicitNewlines',
                              'ValuesAndExpressions::RequireConstantVersion',
+                             'Miscellanea::RequireRcsKeywords',
                             ],
                -profile  => 't/perlcriticrc',
+               -verbose  => "%m at %f line %l, policy %p\n",
 			    );
   all_critic_ok('lib/npg_qc_viewer', 'lib/Catalyst');
 }

@@ -1,52 +1,32 @@
-#########
-# Author:        Kevin Lewis
-# Created:       25 August 2011
-#
-
 package npg_qc::autoqc::role::genotype;
 
-use strict;
-use warnings;
 use Moose::Role;
-use Readonly;
-
-with qw(npg_qc::autoqc::role::result);
+use URI::Escape;
 
 our $VERSION = '0';
-## no critic (Documentation::RequirePodAtEnd)
-
-=head2 criterion
-
- Pass/Fail criterion
-
-=cut
 
 sub criterion {
-	my $self = shift;
-
-	if($self->expected_sample_name and $self->search_parameters and $self->search_parameters->{min_common_snps} and $self->search_parameters->{poss_dup_level}) {
-		return q[Sample name is ] . $self->expected_sample_name . q[, number of common SNPs &ge; ] . $self->search_parameters->{min_common_snps} . q[ and percentage of loosely matched calls &gt; ] . $self->search_parameters->{poss_dup_level} . q[%] . q[ (fail: &lt;50%)];
-	}
-
-	return q[];
+  my $self = shift;
+  my $c = q[];
+  if($self->expected_sample_name and $self->search_parameters) {
+    my $min_common_snps = $self->search_parameters->{'min_common_snps'};
+    my $poss_dup_level  = $self->search_parameters->{'poss_dup_level'};
+    if ($min_common_snps and $poss_dup_level) {
+      my $sn = $self->expected_sample_name;
+      $c = qq[Sample name is $sn, number of common SNPs >= $min_common_snps ] .
+           qq[and percentage of loosely matched calls > $poss_dup_level] .
+            q[% (fail: < 50%)];
+    }
+  }
+  return $c;
 }
 
-=head2 check_name
-
- The name of the check, modified to include the SNP call set
-
-=cut
-
-sub check_name {
-	my $self = shift;
-
-	my $ref = $self->class_name;
-	$ref =~ s/_/ /gsmx;
-	if($self->snp_call_set) {
-		$ref = $ref.q{ }.$self->snp_call_set;
-	}
-
-	return $ref;
+sub check_name_local {
+  my ($self, $name) = @_;
+  if($self->snp_call_set) {
+    $name = join q{ }, $name, $self->snp_call_set;
+  }
+  return $name;
 }
 
 no Moose;
@@ -54,7 +34,6 @@ no Moose;
 1;
 
 __END__
-
 
 =head1 NAME
 
@@ -68,6 +47,12 @@ __END__
 
 =head2 criterion
 
+ Pass/Fail criterion
+
+=head2 check_name_local
+
+ The name of the check modified to include the SNP call set
+
 =head1 DIAGNOSTICS
 
 =head1 CONFIGURATION AND ENVIRONMENT
@@ -78,7 +63,7 @@ __END__
 
 =item Moose::Role
 
-=item Readonly
+=item URI::Escape
 
 =back
 
@@ -88,11 +73,11 @@ __END__
 
 =head1 AUTHOR
 
-Author: Kevin Lewis E<lt>kl2@sanger.ac.ukE<gt>
+Kevin Lewis E<lt>kl2@sanger.ac.ukE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2011 GRL, by Kevin Lewis
+Copyright (C) 2016 GRL
 
 This file is part of NPG.
 

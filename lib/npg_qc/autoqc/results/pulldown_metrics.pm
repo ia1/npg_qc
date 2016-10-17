@@ -1,12 +1,7 @@
-#########
-# Author:        Marina Gourtovaia
-# Created:       27 April 2012
-#
-
 package npg_qc::autoqc::results::pulldown_metrics;
 
 use Moose;
-use Readonly;
+use namespace::autoclean;
 
 extends qw(npg_qc::autoqc::results::result);
 with qw(npg_qc::autoqc::role::pulldown_metrics);
@@ -207,7 +202,7 @@ has 'interval_files_identical' =>      (isa        => 'Maybe[Bool]',
                                               required   => 0,
 		                             );
 
-no Moose;
+__PACKAGE__->meta->make_immutable;
 
 1;
 
@@ -223,7 +218,7 @@ __END__
 
 =item Moose
 
-=item Readonly
+=item namespace::autoclean
 
 =back
 
@@ -233,11 +228,11 @@ __END__
 
 =head1 AUTHOR
 
-Author: Marina Gourtovaia<lt>mg8@sanger.ac.ukE<gt>
+Marina Gourtovaia<lt>mg8@sanger.ac.ukE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (C) 2012 GRL, by Marina Gourtovaia
+Copyright (C) 2016 GRL
 
 This file is part of NPG.
 

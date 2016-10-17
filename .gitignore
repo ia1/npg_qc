@@ -3,5 +3,11 @@ Build*
 MYMETA*
 _build/
 blib/
+src/*/build/*
 *~
+bower_components
+node_modules
+*.bak
+.project
+.includepath
 
