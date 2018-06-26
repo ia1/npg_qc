@@ -2,6 +2,7 @@
  * Authors: designed and written by Irina Abnizova (ia1) and Steven Leonard (srl)
  *
   Last edited:
+  June 2018 : removed monotonicity while it is not further than halh-height
    2 Sept 2016- to introduce 3-4 smoothing iteration BEFORE stabilizing check
   28 Sep -when outputting filtered modes skip stdev
   30 Jan -sds, monotonuity, separate treating of first and last bin peaks: twice larger std
@@ -45,7 +46,7 @@ int SpuriousPeaks(float hist[], int bins[], int nbins, float amp[], int pos[], i
 float GetMax (float hist[], int nbins);
 
 int FindMainMode (float hist[],int bins[],int nbins, float height);// mu for Norm fit
-float EstimateStd (float hist[],int bins[],int nbins, int mu, float height);// returns sd
+float EstimateStd_NonMon(float hist[],int bins[],int nbins, int mu, float height);// returns sd
 float FitNormal(int mu, float sd,int bin);// returns one value from Norm pdf
 float Differ2Normal(float hist[],float histN[],int bins[],int nbins);// returns confidence
 
@@ -185,8 +186,8 @@ int main(int argc, char **argv)
     num_peS = num_peI;
     diff = 1;
     for (i=0; i<nbins; i++){
-		histS[i]=0.0;
-	}
+        histS[i]=0.0;
+    }
 
     Smoothing_iterate( histS, hist, bins,nbins, num_peS);
 
@@ -254,7 +255,7 @@ int main(int argc, char **argv)
     #ifdef STD_OTHER_MODES
     for (k=0; k<num_modes; k++)
     {
-        sds[k]=EstimateStd(hist,bins,nbins,pos[k],amp[k]);// std of a filtered mode
+        sds[k]=EstimateStd_NonMon(hist,bins,nbins,pos[k],amp[k]);// std of a filtered mode
         //printf("st dev of a mode %.2f\n", sds[k]);
     }
     #endif /* STD_OTHER_MODES */
@@ -262,10 +263,10 @@ int main(int argc, char **argv)
     //4 -----------compute params of main mode
     mu = FindMainMode(hist,bins,nbins,height);// mu for Norm fit
     //for (k=0; k<nbins; k++){
-		//printf("hist= %.2f\n", hist[k]);
-	//}
+        //printf("hist= %.2f\n", hist[k]);
+    //}
 
-    sd = EstimateStd(hist,bins,nbins,mu,height);//for smoothed hist
+    sd = EstimateStd_NonMon(hist,bins,nbins,mu,height);//for smoothed hist
 
     //5 ---------------------Norm fit toMain Mode
     for (i=0; i<nbins; i++)
@@ -430,6 +431,57 @@ float EstimateStd (float hist[],int bins[],int nbins, int mu, float height)
 
     return sd;
 }
+//-----------------------------------------estimate NonMon
+float EstimateStd_NonMon(float hist[],int bins[],int nbins, int mu, float height)
+{
+    int n;
+    int ma_bin = -1;
+    int mi_bin = -1;
+    float threshold = 0.5*height;
+
+    float sd;
+
+    for (n=0; n<nbins; n++)
+    {
+        if (bins[n] >= mu)// to the Right of mode
+        {
+            if ((hist[n] >= threshold) & (abs(mu-bins[n]) <= threshold))// REmoved 13June 2018 (but constrained movement) & (hist[n] >= hist[n+1]))// added monotonity condition 29 Jan
+            {
+                ma_bin = bins[n];
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+
+    for (n=nbins-1; n>=0; n--)
+    {
+        if (bins[n] <= mu)// to the Left of mode
+        {
+            if ((hist[n] >= threshold) & (abs(mu-bins[n]) <= threshold))// REmoved 13June 2018 (but constrained movement))//  & (hist[n-1] <= hist[n]))// added monotonity condition 29 Jan
+            {
+                mi_bin = bins[n];
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+
+    sd = 0.5 * (ma_bin - mi_bin);
+
+    if (mu==bins[0])
+    sd = (ma_bin - mi_bin);
+    if (mu==bins[nbins-1])
+    sd = (ma_bin - mi_bin);
+
+
+    return sd;
+}
+
 
 //-------------------------------------------------------
 int FindMainMode (float hist[],int bins[],int nbins, float height)// mu for Norm fit
